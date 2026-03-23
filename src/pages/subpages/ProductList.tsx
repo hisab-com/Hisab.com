@@ -1,13 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import PageHeader from '../../components/PageHeader';
-import { Plus, Package, Edit, Trash2, Search, Barcode, MoreVertical, Layers, FileText, Share2, X, Upload, Loader2, AlertTriangle, Calendar, Tag, Minus, Image as ImageIcon, CheckCircle2 } from 'lucide-react';
+import { Plus, Package, Edit, Trash2, Search, Barcode, MoreVertical, Layers, FileText, X, Upload, Loader2, AlertTriangle, Calendar, Tag, Minus, Image as ImageIcon, CheckCircle2 } from 'lucide-react';
 import { useAppConfig } from '../../context/AppConfigContext';
 import { databases, DB_ID, PRODUCTS_COLLECTION, STOCK_HISTORY_COLLECTION, ID, Query } from '../../lib/appwrite';
 import { uploadToCloudinary } from '../../utils/cloudinary';
 import { Html5Qrcode } from 'html5-qrcode';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import * as XLSX from 'xlsx';
 
 export default function ProductList({ onBack, shop }: any) {
     const { t, themeClasses, formatCurrency } = useAppConfig();
@@ -22,7 +19,7 @@ export default function ProductList({ onBack, shop }: any) {
     const [showProductModal, setShowProductModal] = useState(false);
     const [showStockModal, setShowStockModal] = useState(false);
     const [showScannerModal, setShowScannerModal] = useState(false);
-    const [isGeneratingAction, setIsGeneratingAction] = useState(false);
+    const [isPrinting, setIsPrinting] = useState(false);
 
     // Form State
     const [editProductId, setEditProductId] = useState('');
@@ -280,136 +277,127 @@ export default function ProductList({ onBack, shop }: any) {
         }
     };
 
-    // --- ডিরেক্ট প্রিন্ট ফাংশন (কোনো ডাউনলোড হবে না) ---
-    const printPDF = async () => {
-        setIsGeneratingAction(true);
+    // --- সম্পূর্ণ নতুন এবং অরিজিনাল মোবাইল প্রিন্ট ফাংশন ---
+    const handleNativePrint = () => {
+        setIsPrinting(true);
         try {
-            const doc = new jsPDF();
-            
-            try {
-                const response = await fetch('/NotoSansBengali.ttf'); 
-                if (response.ok) {
-                    const fontBuffer = await response.arrayBuffer();
-                    const fontUint8Array = new Uint8Array(fontBuffer);
-                    let binaryString = '';
-                    for (let i = 0; i < fontUint8Array.byteLength; i++) {
-                        binaryString += String.fromCharCode(fontUint8Array[i]);
-                    }
-                    const base64String = window.btoa(binaryString);
-                    
-                    doc.addFileToVFS('NotoSansBengali.ttf', base64String);
-                    doc.addFont('NotoSansBengali.ttf', 'BanglaFont', 'normal');
-                    doc.setFont('BanglaFont');
-                }
-            } catch (err) {
-                console.warn('Bangla font not loaded, falling back to default', err);
+            const printWindow = window.open('', '_blank');
+            if (!printWindow) {
+                alert(t.popupBlocked || "Pop-up blocked. Please allow pop-ups to print.");
+                setIsPrinting(false);
+                return;
             }
 
-            doc.setFontSize(20);
-            doc.text(shop.name, 105, 15, { align: 'center' });
-            
-            doc.setFontSize(10);
-            doc.setTextColor(100, 100, 100);
-            doc.text(`${t.inventoryReport || "Inventory Report"} | Date: ${new Date().toLocaleDateString()}`, 105, 22, { align: 'center' });
-
-            const tableColumn = ["#", t.product || "Product", t.brand || "Brand", t.stock || "Stock", t.buyPrice || "Buy", t.sellPrice || "Sell", t.totalValue || "Total Value"];
-            const tableRows: any[] = [];
+            let tableRows = '';
             let totalValue = 0;
+            let totalQty = 0;
 
             filteredProducts.forEach((p, index) => {
                 const val = p.stock * p.sell_price;
                 totalValue += val;
-                const productData = [
-                    index + 1,
-                    p.name,
-                    p.brand || '-',
-                    `${p.stock} ${p.unit || ''}`,
-                    p.buy_price,
-                    p.sell_price,
-                    val
-                ];
-                tableRows.push(productData);
+                totalQty += Number(p.stock);
+                
+                tableRows += `
+                    <tr>
+                        <td style="text-align: center; color: #666;">${index + 1}</td>
+                        <td style="font-weight: 600; color: #1e293b;">${p.name} ${p.brand ? `<span style="color: #64748b; font-size: 10px; font-weight: normal;">(${p.brand})</span>` : ''}</td>
+                        <td style="text-align: right; font-weight: 500;">${p.stock} <span style="font-size: 10px; color: #64748b;">${p.unit || ''}</span></td>
+                        <td style="text-align: right;">${p.buy_price.toFixed(2)}</td>
+                        <td style="text-align: right;">${p.sell_price.toFixed(2)}</td>
+                        <td style="text-align: right; font-weight: 600;">${val.toFixed(2)}</td>
+                    </tr>
+                `;
             });
 
-            tableRows.push(["", "", "", "", "", t.total || "Total:", totalValue]);
+            const htmlContent = `
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>${shop.name} - Inventory Report</title>
+                    <style>
+                        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;600;700&display=swap');
+                        body { 
+                            font-family: 'Noto Sans Bengali', system-ui, -apple-system, sans-serif; 
+                            padding: 20px; 
+                            color: #334155; 
+                            line-height: 1.5;
+                            margin: 0 auto;
+                            max-width: 1000px;
+                        }
+                        .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #e2e8f0; padding-bottom: 15px; }
+                        h2 { color: #0f172a; margin: 0 0 5px 0; font-size: 24px; font-weight: 700; }
+                        p { color: #64748b; margin: 0; font-size: 13px; }
+                        
+                        .summary { display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 14px; font-weight: 600; background: #f8fafc; padding: 10px 15px; border-radius: 8px; }
+                        
+                        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+                        th, td { border-bottom: 1px solid #e2e8f0; padding: 10px 8px; }
+                        th { background-color: #f1f5f9; color: #475569; font-weight: 700; text-align: right; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
+                        th:nth-child(1), th:nth-child(2) { text-align: left; }
+                        
+                        .total-row td { font-weight: bold; background-color: #f8fafc; color: #0f172a; font-size: 13px; border-top: 2px solid #cbd5e1; }
+                        
+                        @media print {
+                            body { padding: 0; max-width: none; }
+                            @page { margin: 1cm; size: A4 portrait; }
+                            .no-print { display: none; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <h2>${shop.name}</h2>
+                        <p>${t.inventoryReport || "Inventory Report"} | Date: ${new Date().toLocaleDateString()}</p>
+                    </div>
+                    
+                    <div class="summary">
+                        <span>Total Items: <span style="color: #2563eb;">${filteredProducts.length}</span></span>
+                        <span>Total Quantity: <span style="color: #16a34a;">${totalQty}</span></span>
+                        <span>Total Value: <span style="color: #dc2626;">${formatCurrency(totalValue)}</span></span>
+                    </div>
 
-            autoTable(doc, {
-                head: [tableColumn],
-                body: tableRows,
-                startY: 30,
-                theme: 'grid',
-                headStyles: { fillColor: [50, 50, 50], font: 'BanglaFont' },
-                bodyStyles: { font: 'BanglaFont' },
-                footStyles: { fillColor: [243, 244, 246], textColor: [0, 0, 0], fontStyle: 'bold', font: 'BanglaFont' },
-                showFoot: 'lastPage'
-            });
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="text-align: center; width: 40px;">#</th>
+                                <th>${t.product || "Product Name"}</th>
+                                <th>${t.stock || "Stock Qty"}</th>
+                                <th>${t.buyPrice || "Buy"}</th>
+                                <th>${t.sellPrice || "Sell"}</th>
+                                <th>${t.totalValue || "Total Value"}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${tableRows}
+                            <tr class="total-row">
+                                <td colspan="5" style="text-align: right;">${t.total || "Grand Total"}:</td>
+                                <td style="text-align: right;">${formatCurrency(totalValue)}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <script>
+                        window.onload = function() {
+                            setTimeout(function() {
+                                window.print();
+                                setTimeout(function() { window.close(); }, 500);
+                            }, 500);
+                        };
+                    </script>
+                </body>
+                </html>
+            `;
 
-            // Auto Print সেটআপ
-            doc.autoPrint();
-            
-            // একটি লুকানো iframe তৈরি করে তার মাধ্যমে সরাসরি প্রিন্ট ডায়লগ কল করা
-            const pdfBlobUrl = doc.output('bloburl');
-            const iframe = document.createElement('iframe');
-            iframe.style.display = 'none';
-            iframe.src = pdfBlobUrl;
-            document.body.appendChild(iframe);
-            
-            iframe.onload = () => {
-                setTimeout(() => {
-                    if (iframe.contentWindow) {
-                        iframe.contentWindow.focus();
-                        iframe.contentWindow.print();
-                    }
-                }, 200);
-            };
+            printWindow.document.open();
+            printWindow.document.write(htmlContent);
+            printWindow.document.close();
 
         } catch (error) {
-            console.error("PDF Print Error: ", error);
+            console.error("Print Error: ", error);
             alert(t.pdfError || "প্রিন্ট করতে সমস্যা হয়েছে।");
         } finally {
-            setIsGeneratingAction(false);
-        }
-    };
-
-    // --- এক্সেল শিট শেয়ার/প্রিন্ট ফাংশন (কোনো ডাউনলোড হবে না) ---
-    const shareExcel = async () => {
-        setIsGeneratingAction(true);
-        try {
-            const worksheet = XLSX.utils.json_to_sheet(filteredProducts.map(p => ({
-                [t.productName || "Product Name"]: p.name,
-                [t.brand || "Brand"]: p.brand || '-',
-                [t.stock || "Stock"]: p.stock,
-                [t.unit || "Unit"]: p.unit || '-',
-                [t.buyPrice || "Buy Price"]: p.buy_price,
-                [t.sellPrice || "Sell Price"]: p.sell_price,
-                [t.totalValue || "Total Value"]: p.stock * p.sell_price,
-                "Barcode": p.barcode || '-'
-            })));
-            const workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, "Inventory");
-            
-            // ArrayBuffer হিসেবে ডেটা তৈরি করা হচ্ছে
-            const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-            const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-            
-            // File অবজেক্ট তৈরি করা হচ্ছে
-            const file = new File([blob], `${shop.name}_Inventory.xlsx`, { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-            
-            // Web Share API এর মাধ্যমে শেয়ার ডায়লগ কল করা (যা দিয়ে প্রিন্টও করা যায়)
-            if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                await navigator.share({
-                    files: [file],
-                    title: 'Inventory Report',
-                    text: 'Here is the inventory report Excel sheet.'
-                });
-            } else {
-                alert(t.shareNotSupported || "আপনার ব্রাউজার বা ডিভাইসে সরাসরি শেয়ার সাপোর্ট করে না।");
-            }
-        } catch (error) {
-            console.error("Excel Share Error: ", error);
-            alert("শেয়ার করতে সমস্যা হয়েছে।");
-        } finally {
-            setIsGeneratingAction(false);
+            setIsPrinting(false);
         }
     };
 
@@ -420,18 +408,14 @@ export default function ProductList({ onBack, shop }: any) {
                 onBack={onBack} 
                 rightContent={
                     <div className="flex space-x-2">
-                        {/* Print PDF Button */}
-                        <button onClick={printPDF} disabled={isGeneratingAction} className="p-2 bg-white/20 text-white rounded-xl hover:bg-white/30 transition-colors shadow-sm active:scale-95 disabled:opacity-50" title={t.printPdf || "Print List"}>
-                            {isGeneratingAction ? <Loader2 className="h-5 w-5 animate-spin" /> : <FileText className="h-5 w-5" />}
-                        </button>
-                        
-                        {/* Share Excel Button */}
-                        <button onClick={shareExcel} disabled={isGeneratingAction} className="p-2 bg-white/20 text-white rounded-xl hover:bg-white/30 transition-colors shadow-sm active:scale-95 disabled:opacity-50" title={t.shareExcel || "Share Excel"}>
-                            {isGeneratingAction ? <Loader2 className="h-5 w-5 animate-spin" /> : <Share2 className="h-5 w-5" />}
+                        {/* Native Print Button */}
+                        <button onClick={handleNativePrint} disabled={isPrinting} className="px-3 py-1.5 bg-white/20 text-white rounded-xl hover:bg-white/30 transition-colors shadow-sm active:scale-95 disabled:opacity-50 flex items-center font-semibold text-sm" title={t.printPdf || "Print List"}>
+                            {isPrinting ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <FileText className="h-4 w-4 mr-1.5" />}
+                            {t.print || "Print"}
                         </button>
                         
                         {/* Add Button */}
-                        <button onClick={() => openModal('add')} className={`px-3 py-1.5 bg-white ${themeClasses.primaryText} font-bold rounded-xl shadow-sm hover:bg-slate-50 transition-colors active:scale-95 flex items-center`}>
+                        <button onClick={() => openModal('add')} className={`px-3 py-1.5 bg-white ${themeClasses.primaryText} font-bold rounded-xl shadow-sm hover:bg-slate-50 transition-colors active:scale-95 flex items-center text-sm`}>
                             <Plus className="h-4 w-4 mr-1" /> {t.add || "Add"}
                         </button>
                     </div>
@@ -441,7 +425,7 @@ export default function ProductList({ onBack, shop }: any) {
             <div className="p-4 bg-white border-b border-slate-200 shadow-sm z-10">
                 <div className="flex space-x-3">
                     <div className="relative flex-1 group">
-                        <Search className={`absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:${themeClasses.primaryText} transition-colors`} />
+                        <Search className={`absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:${themeClasses.primaryText.split(' ')[0]} transition-colors`} />
                         <input 
                             type="text" 
                             value={searchTerm}
@@ -491,7 +475,7 @@ export default function ProductList({ onBack, shop }: any) {
                                         <span className={`text-[11px] px-2.5 py-0.5 rounded-md font-bold bg-emerald-50 text-emerald-700 border border-emerald-100`}>
                                             {t.buy || "Buy"}: {formatCurrency(p.buy_price)}
                                         </span>
-                                        <span className={`text-[11px] px-2.5 py-0.5 rounded-md font-bold ${themeClasses.lightBg} ${themeClasses.primaryText} border border-slate-100`}>
+                                        <span className={`text-[11px] px-2.5 py-0.5 rounded-md font-bold ${themeClasses.lightBg} ${themeClasses.primaryText} border border-transparent`}>
                                             {t.sell || "Sell"}: {formatCurrency(p.sell_price)}
                                         </span>
                                     </div>
@@ -499,7 +483,7 @@ export default function ProductList({ onBack, shop }: any) {
                                 
                                 <button 
                                     onClick={(e) => { e.stopPropagation(); setActiveMenu(activeMenu === p.$id ? null : p.$id); }}
-                                    className={`p-2 text-slate-400 hover:${themeClasses.primaryText} hover:${themeClasses.lightBg} rounded-xl ml-2 transition-colors`}
+                                    className={`p-2 text-slate-400 hover:${themeClasses.primaryText.split(' ')[0]} hover:${themeClasses.lightBg.split(' ')[0]} rounded-xl ml-2 transition-colors`}
                                 >
                                     <MoreVertical className="h-6 w-6" />
                                 </button>
@@ -555,7 +539,7 @@ export default function ProductList({ onBack, shop }: any) {
                                     ) : pImageUrl ? (
                                         <img src={pImageUrl} className="w-full h-full object-cover" alt="Product" />
                                     ) : (
-                                        <div className={`flex flex-col items-center justify-center text-slate-400 group-hover:${themeClasses.primaryText} transition-colors`}>
+                                        <div className={`flex flex-col items-center justify-center text-slate-400 group-hover:${themeClasses.primaryText.split(' ')[0]} transition-colors`}>
                                             <ImageIcon className="w-8 h-8 mb-2" />
                                             <span className="text-[11px] font-bold uppercase tracking-wider">{t.addPhoto || "Add Photo"}</span>
                                         </div>

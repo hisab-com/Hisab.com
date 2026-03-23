@@ -279,6 +279,7 @@ export default function ProductList({ onBack, shop }: any) {
             setShowScannerModal(false);
         }
     };
+
     const printPDF = async () => {
         setIsGeneratingPdf(true);
         try {
@@ -344,64 +345,20 @@ export default function ProductList({ onBack, shop }: any) {
                 showFoot: 'lastPage'
             });
 
-            // পিডিএফ জেনারেট হওয়ার সাথে সাথে ব্রাউজারকে প্রিন্ট ডায়লগ ওপেন করতে বলা
+            // পিডিএফ জেনারেট হওয়ার সাথে সাথে অটো প্রিন্ট কমান্ড
             doc.autoPrint();
             
-            // পিডিএফকে Blob এ কনভার্ট করে নতুন ট্যাবে ওপেন করা
+            // ব্রাউজার যাতে কোড না পড়ে পিডিএফ হিসেবে চিনে, তাই Blob তৈরি করা হলো
             const pdfBlob = doc.output('blob');
             const blobUrl = URL.createObjectURL(pdfBlob);
             
+            // নতুন ট্যাবে অরিজিনাল পিডিএফ ভিউয়ারে ওপেন হবে
             const printWindow = window.open(blobUrl, '_blank');
             
-            // যদি ব্রাউজার পপ-আপ ব্লক করে রাখে, তাহলে সেম উইন্ডোতে ওপেন হবে
+            // যদি ব্রাউজার পপ-আপ ব্লক করে, তবে একই পেজে ওপেন হবে
             if (!printWindow) {
                 alert(t.popupBlocked || "Pop-up blocked. Opening in the same window.");
                 window.location.href = blobUrl;
-            }
-            
-        } catch (error) {
-            console.error("PDF Print Error: ", error);
-            alert(t.pdfError || "পিডিএফ তৈরি করতে সমস্যা হয়েছে।");
-        } finally {
-            setIsGeneratingPdf(false);
-        }
-    };
-
-
-            // পিডিএফ সরাসরি প্রিন্ট করার লজিক
-            doc.autoPrint();
-            // Data URI হিসেবে তৈরি করে ব্রাউজারকে বলছি এটা PDF হিসেবে ওপেন করতে
-            const pdfDataUri = doc.output('datauristring');
-            
-            // একটি নতুন উইন্ডো বা ট্যাব খুলবে এবং পিডিএফটি সেখানে রেন্ডার করবে
-            const printWindow = window.open('', '_blank');
-            if (printWindow) {
-                // ব্রাউজারের ডিফল্ট পিডিএফ ভিউয়ারে ওপেন করার জন্য HTML ট্যাগ
-                printWindow.document.write(`
-                    <html>
-                        <head>
-                            <title>${shop.name} - Inventory Report</title>
-                            <style>
-                                body { margin: 0; padding: 0; background-color: #525659; height: 100vh; display: flex; flex-direction: column; }
-                                iframe { flex: 1; border: none; width: 100%; height: 100%; }
-                            </style>
-                        </head>
-                        <body>
-                            <iframe src="${pdfDataUri}" type="application/pdf" width="100%" height="100%"></iframe>
-                            <script>
-                                // উইন্ডো লোড হওয়ার সাথে সাথে প্রিন্ট ডায়লগ আনার চেষ্টা
-                                window.onload = function() {
-                                    setTimeout(function() { window.print(); }, 500);
-                                };
-                            </script>
-                        </body>
-                    </html>
-                `);
-                printWindow.document.close();
-            } else {
-                // যদি পপ-আপ ব্লক করা থাকে, তাহলে সরাসরি ব্রাউজারে সেম ট্যাবে ওপেন করার চেষ্টা
-                alert(t.popupBlocked || "Pop-up is blocked. Opening in same window.");
-                window.location.href = pdfDataUri;
             }
             
         } catch (error) {

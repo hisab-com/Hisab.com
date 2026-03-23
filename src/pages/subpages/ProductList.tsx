@@ -6,7 +6,7 @@ import { databases, DB_ID, PRODUCTS_COLLECTION, STOCK_HISTORY_COLLECTION, ID, Qu
 import { uploadToUploadMe } from '../../utils/uploadMe';
 import { Html5Qrcode } from 'html5-qrcode';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 
 export default function ProductList({ onBack, shop }: any) {
@@ -304,7 +304,7 @@ export default function ProductList({ onBack, shop }: any) {
 
         tableRows.push(["", "", "", "", "", "Total:", totalValue]);
 
-        (doc as any).autoTable({
+        autoTable(doc, {
             head: [tableColumn],
             body: tableRows,
             startY: 30,

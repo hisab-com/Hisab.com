@@ -12,3 +12,4 @@ export const DB_ID = 'shop_db';
 export const SHOPS_COLLECTION = 'shops';
 export const PRODUCTS_COLLECTION = 'products';
 export const STOCK_HISTORY_COLLECTION = 'stock_history';
+export const CONTACTS_COLLECTION = 'contacts';

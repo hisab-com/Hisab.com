@@ -22,8 +22,6 @@ export default function ProductList({ onBack, shop }: any) {
     const [showProductModal, setShowProductModal] = useState(false);
     const [showStockModal, setShowStockModal] = useState(false);
     const [showScannerModal, setShowScannerModal] = useState(false);
-    const [showPdfPreview, setShowPdfPreview] = useState(false);
-    const [pdfUrl, setPdfUrl] = useState('');
     const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
     // Form State
@@ -282,16 +280,13 @@ export default function ProductList({ onBack, shop }: any) {
         }
     };
 
-    const generatePDF = async () => {
+    const printPDF = async () => {
         setIsGeneratingPdf(true);
         try {
             const doc = new jsPDF();
             
             // --- বাংলা ফন্ট লোড করার সিস্টেম ---
-            // সতর্কতা: আপনার public ফোল্ডারে 'NotoSansBengali.ttf' নামের একটি ফন্ট থাকতে হবে।
-            // ফন্ট না পেলে এটি ডিফল্ট ইংরেজি ফন্ট ব্যবহার করবে।
             try {
-                // আপনি চাইলে আপনার ওয়েবসাইটের ফন্ট লোকেশন এখানে দিতে পারেন
                 const response = await fetch('/NotoSansBengali.ttf'); 
                 if (response.ok) {
                     const fontBuffer = await response.arrayBuffer();
@@ -304,7 +299,7 @@ export default function ProductList({ onBack, shop }: any) {
                     
                     doc.addFileToVFS('NotoSansBengali.ttf', base64String);
                     doc.addFont('NotoSansBengali.ttf', 'BanglaFont', 'normal');
-                    doc.setFont('BanglaFont'); // ডিফল্ট ফন্ট হিসেবে সেট করা হলো
+                    doc.setFont('BanglaFont');
                 }
             } catch (err) {
                 console.warn('Bangla font not loaded, falling back to default', err);
@@ -350,13 +345,44 @@ export default function ProductList({ onBack, shop }: any) {
                 showFoot: 'lastPage'
             });
 
-            // Blob ব্যবহার করা হয়েছে প্রিভিউ এর জন্য, যা ইফ্রেমে ভালো সাপোর্ট করে
-            const pdfBlob = doc.output('blob');
-            const blobUrl = URL.createObjectURL(pdfBlob);
-            setPdfUrl(blobUrl);
-            setShowPdfPreview(true);
+            // পিডিএফ সরাসরি প্রিন্ট করার লজিক
+            doc.autoPrint();
+            // Data URI হিসেবে তৈরি করে ব্রাউজারকে বলছি এটা PDF হিসেবে ওপেন করতে
+            const pdfDataUri = doc.output('datauristring');
+            
+            // একটি নতুন উইন্ডো বা ট্যাব খুলবে এবং পিডিএফটি সেখানে রেন্ডার করবে
+            const printWindow = window.open('', '_blank');
+            if (printWindow) {
+                // ব্রাউজারের ডিফল্ট পিডিএফ ভিউয়ারে ওপেন করার জন্য HTML ট্যাগ
+                printWindow.document.write(`
+                    <html>
+                        <head>
+                            <title>${shop.name} - Inventory Report</title>
+                            <style>
+                                body { margin: 0; padding: 0; background-color: #525659; height: 100vh; display: flex; flex-direction: column; }
+                                iframe { flex: 1; border: none; width: 100%; height: 100%; }
+                            </style>
+                        </head>
+                        <body>
+                            <iframe src="${pdfDataUri}" type="application/pdf" width="100%" height="100%"></iframe>
+                            <script>
+                                // উইন্ডো লোড হওয়ার সাথে সাথে প্রিন্ট ডায়লগ আনার চেষ্টা
+                                window.onload = function() {
+                                    setTimeout(function() { window.print(); }, 500);
+                                };
+                            </script>
+                        </body>
+                    </html>
+                `);
+                printWindow.document.close();
+            } else {
+                // যদি পপ-আপ ব্লক করা থাকে, তাহলে সরাসরি ব্রাউজারে সেম ট্যাবে ওপেন করার চেষ্টা
+                alert(t.popupBlocked || "Pop-up is blocked. Opening in same window.");
+                window.location.href = pdfDataUri;
+            }
+            
         } catch (error) {
-            console.error("PDF Generation Error: ", error);
+            console.error("PDF Print Error: ", error);
             alert(t.pdfError || "পিডিএফ তৈরি করতে সমস্যা হয়েছে।");
         } finally {
             setIsGeneratingPdf(false);
@@ -386,10 +412,10 @@ export default function ProductList({ onBack, shop }: any) {
                 onBack={onBack} 
                 rightContent={
                     <div className="flex space-x-2">
-                        <button onClick={generatePDF} disabled={isGeneratingPdf} className="p-2 bg-white/20 text-white rounded-xl hover:bg-white/30 transition-colors shadow-sm active:scale-95 disabled:opacity-50">
+                        <button onClick={printPDF} disabled={isGeneratingPdf} className="p-2 bg-white/20 text-white rounded-xl hover:bg-white/30 transition-colors shadow-sm active:scale-95 disabled:opacity-50" title={t.printPdf || "Print PDF"}>
                             {isGeneratingPdf ? <Loader2 className="h-5 w-5 animate-spin" /> : <FileText className="h-5 w-5" />}
                         </button>
-                        <button onClick={downloadExcel} className="p-2 bg-white/20 text-white rounded-xl hover:bg-white/30 transition-colors shadow-sm active:scale-95">
+                        <button onClick={downloadExcel} className="p-2 bg-white/20 text-white rounded-xl hover:bg-white/30 transition-colors shadow-sm active:scale-95" title={t.downloadExcel || "Download Excel"}>
                             <FileSpreadsheet className="h-5 w-5" />
                         </button>
                         <button onClick={() => openModal('add')} className="px-3 py-1.5 bg-white text-indigo-600 font-bold rounded-xl shadow-sm hover:bg-slate-50 transition-colors active:scale-95 flex items-center">
@@ -689,28 +715,6 @@ export default function ProductList({ onBack, shop }: any) {
                     </button>
                 </div>
             )}
-
-            {/* --- PDF Preview Modal --- */}
-            {showPdfPreview && (
-                <div className="fixed inset-0 z-[70] flex flex-col bg-slate-900/95 backdrop-blur-md animate-in fade-in">
-                    <div className="flex justify-between items-center p-4 bg-white/10 border-b border-white/10">
-                        <h3 className="font-bold text-lg text-white">{t.pdfPreview || "PDF Preview"}</h3>
-                        <div className="flex space-x-3">
-                            {/* মোবাইলে সরাসরি ডাউনলোড করার জন্য বাটন */}
-                            <a href={pdfUrl} download={`${shop.name}_Inventory.pdf`} className={`px-5 py-2 rounded-xl ${themeClasses.primaryBg} text-white font-bold flex items-center shadow-lg active:scale-95 transition-all`}>
-                                {t.downloadPdf || "Download"}
-                            </a>
-                            <button onClick={() => setShowPdfPreview(false)} className="p-2 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-colors">
-                                <X className="h-5 w-5" />
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <div className="flex-1 w-full h-full p-2 sm:p-6 overflow-hidden bg-slate-800 flex justify-center items-center">
-                        {/* Object এবং Embed ট্যাগ ব্যবহার করা হয়েছে ল্যাপটপ ও মোবাইলের জন্য */}
-                        <object data={pdfUrl} type="application/pdf" className="w-full h-full max-w-5xl bg-white rounded-xl shadow-2xl">
-                            <embed src={pdfUrl} type="application/pdf" className="w-full h-full rounded-xl" />
-                        </object>
-                    </div>
-                </div>
-            )}
+        </div>
+    );
+}

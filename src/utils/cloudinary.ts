@@ -1,32 +1,22 @@
 import { compressImage } from './imageCompression';
 
+// ⚠️ অ্যাপের ডিফল্ট স্টোরেজ (শুধু Cloud Name এবং Unsigned Preset থাকবে)
+// এটি লোগো বা প্রোফাইল ছবির জন্য, অথবা যে ইউজারের নিজস্ব স্টোরেজ নেই তার জন্য ব্যবহৃত হবে।
 export const DEFAULT_CLOUDINARY = {
-    cloudName: 'dpf8idv34',
-    apiKey: '729493882159444',
-    apiSecret: 'FSx_5DzbXcQKPkb9GnxHPTZZ6es'
-};
-
-export const generateCloudinarySignature = async (params: Record<string, string>, apiSecret: string) => {
-    const sortedKeys = Object.keys(params).sort();
-    const stringToSign = sortedKeys.map(key => `${key}=${params[key]}`).join('&') + apiSecret;
-    
-    const encoder = new TextEncoder();
-    const data = encoder.encode(stringToSign);
-    const hashBuffer = await crypto.subtle.digest('SHA-1', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    cloudName: 'dpf8idv34', // আপনার ক্লাউড নেম
+    uploadPreset: 'stashio_default' // আপনার তৈরি করা ডিফল্ট Unsigned Preset
 };
 
 export const uploadToCloudinary = async (
     file: File, 
-    cloudName: string, 
-    apiKey: string, 
-    apiSecret: string
+    userCloudName?: string, 
+    userUploadPreset?: string
 ): Promise<{ url: string, public_id: string }> => {
     try {
-        const compressedBase64 = await compressImage(file, 50); // 50KB for better quality
+        // ১. ছবি কম্প্রেস করা (আগের মতোই)
+        const compressedBase64 = await compressImage(file, 50); 
         
-        // Convert base64 to Blob directly to avoid fetch(dataUrl) issues
+        // Base64 থেকে Blob/File এ কনভার্ট করা
         const arr = compressedBase64.split(',');
         const mimeMatch = arr[0].match(/:(.*?);/);
         const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
@@ -36,73 +26,48 @@ export const uploadToCloudinary = async (
         while (n--) {
             u8arr[n] = bstr.charCodeAt(n);
         }
-        const blob = new Blob([u8arr], { type: mime });
-        
-        const compressedFile = new File([blob], "image.jpg", { type: mime });
+        const compressedFile = new File([u8arr], "stashio_image.jpg", { type: mime });
 
-        const timestamp = Math.round((new Date).getTime() / 1000).toString();
-        const paramsToSign = { timestamp };
-        const signature = await generateCloudinarySignature(paramsToSign, apiSecret);
+        // ২. চেক করা হচ্ছে ইউজারের নিজস্ব ক্লাউডিনারি ডেটা আছে কি না
+        // যদি ইউজারের দেওয়া Cloud Name এবং Preset থাকে, তবে সেটি ব্যবহার হবে। না হলে ডিফল্টটি ব্যবহার হবে।
+        const targetCloudName = (userCloudName && userCloudName.trim() !== '') ? userCloudName : DEFAULT_CLOUDINARY.cloudName;
+        const targetPreset = (userUploadPreset && userUploadPreset.trim() !== '') ? userUploadPreset : DEFAULT_CLOUDINARY.uploadPreset;
 
+        // ৩. ক্লাউডিনারিতে Unsigned Upload রিকোয়েস্ট পাঠানো
         const formData = new FormData();
         formData.append('file', compressedFile);
-        formData.append('api_key', apiKey);
-        formData.append('timestamp', timestamp);
-        formData.append('signature', signature);
+        formData.append('upload_preset', targetPreset);
 
-        const uploadResponse = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+        const uploadResponse = await fetch(`https://api.cloudinary.com/v1_1/${targetCloudName}/image/upload`, {
             method: 'POST',
             body: formData
         });
 
-        if (uploadResponse.ok) {
-            const data = await uploadResponse.json();
-            return { url: data.secure_url, public_id: data.public_id };
-        } else {
+        if (!uploadResponse.ok) {
             const errText = await uploadResponse.text();
-            console.error("Cloudinary Upload Error:", errText);
             throw new Error(`Upload failed: ${errText}`);
         }
+
+        const data = await uploadResponse.json();
+        
+        return {
+            url: data.secure_url,
+            public_id: data.public_id
+        };
+        
     } catch (error: any) {
         console.error('Error processing image:', error);
         if (error.message === 'Failed to fetch') {
-            throw new Error('Cloudinary তে কানেক্ট করা যাচ্ছে না। আপনার Cloud Name অথবা ইন্টারনেট কানেকশন চেক করুন।');
+            throw new Error('Cloudinary তে কানেক্ট করা যাচ্ছে না। আপনার ইন্টারনেট কানেকশন অথবা Cloud Name চেক করুন।');
         }
         throw new Error(error.message || 'ছবি আপলোড করতে সমস্যা হয়েছে।');
     }
 };
 
+// ৪. নিরাপদ ডিলিট ফাংশন (ফ্রন্টএন্ড থেকে সরাসরি ডিলিট বন্ধ করা হলো)
 export const deleteFromCloudinary = async (
-    publicId: string,
-    cloudName: string,
-    apiKey: string,
-    apiSecret: string
+    publicId: string
 ): Promise<boolean> => {
-    try {
-        const timestamp = Math.round((new Date).getTime() / 1000).toString();
-        const paramsToSign = { public_id: publicId, timestamp };
-        const signature = await generateCloudinarySignature(paramsToSign, apiSecret);
-
-        const formData = new FormData();
-        formData.append('public_id', publicId);
-        formData.append('api_key', apiKey);
-        formData.append('timestamp', timestamp);
-        formData.append('signature', signature);
-
-        const deleteResponse = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/destroy`, {
-            method: 'POST',
-            body: formData
-        });
-
-        if (deleteResponse.ok) {
-            return true;
-        } else {
-            const errText = await deleteResponse.text();
-            console.error("Cloudinary Delete Error:", errText);
-            return false;
-        }
-    } catch (error) {
-        console.error('Error deleting image:', error);
-        return false;
-    }
+    console.warn("Security Alert: ফ্রন্টএন্ড থেকে সরাসরি ছবি ডিলিট করা বন্ধ করা হয়েছে। ডেটাবেস থেকে লিংঙ্ক মুছে ফেলাই যথেষ্ট।");
+    return true; 
 };

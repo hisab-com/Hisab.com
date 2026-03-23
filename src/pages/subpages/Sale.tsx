@@ -51,13 +51,20 @@ export default function Sale({ onBack, shop }: any) {
             ]);
             setProducts(prodRes.documents);
 
-            // Fetch Customers
-            const custRes = await databases.listDocuments(DB_ID, CONTACTS_COLLECTION, [
-                Query.equal('shop_id', shop.$id),
-                Query.equal('type', 'customers'),
-                Query.limit(500)
-            ]);
-            setCustomers([{ name: 'Local (Walk-in)', phone: '' }, ...custRes.documents]);
+            // Fetch Customers safely
+            let fetchedCustomers: any[] = [];
+            try {
+                const custRes = await databases.listDocuments(DB_ID, CONTACTS_COLLECTION, [
+                    Query.equal('shop_id', shop.$id),
+                    Query.equal('type', 'customers'),
+                    Query.limit(500)
+                ]);
+                fetchedCustomers = custRes.documents;
+            } catch (err) {
+                console.warn('Could not fetch customers. Please check CONTACTS_COLLECTION ID.');
+            }
+            
+            setCustomers([{ name: 'Local (Walk-in)', phone: '' }, ...fetchedCustomers]);
         } catch (error) {
             console.error('Error fetching data:', error);
         } finally {
@@ -182,7 +189,7 @@ export default function Sale({ onBack, shop }: any) {
 
         } catch (error) {
             console.error('Sale Error:', error);
-            alert('Failed to process sale. Check collections and permissions.');
+            alert('Failed to process sale. Check collections and permissions in Appwrite.');
         } finally {
             setIsProcessing(false);
         }
@@ -231,7 +238,7 @@ export default function Sale({ onBack, shop }: any) {
                 <div className="p-4 bg-white border-b border-slate-200 shadow-sm z-10">
                     <div className="flex space-x-3">
                         <div className="relative flex-1 group">
-                            <Search className={`absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:${themeClasses.primaryText.split(' ')[0]} transition-colors`} />
+                            <Search className={`absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors`} />
                             <input 
                                 type="text" 
                                 value={searchTerm}
@@ -257,7 +264,7 @@ export default function Sale({ onBack, shop }: any) {
                             <div 
                                 key={p.$id} 
                                 onClick={() => toggleCart(p)}
-                                className={`bg-white p-3.5 rounded-2xl border-2 transition-all flex items-center cursor-pointer ${inCart ? `border-${themeClasses.primaryBg.split('-')[1]}-500 bg-indigo-50/30` : 'border-slate-100 hover:border-slate-300'} ${outOfStock ? 'opacity-50 pointer-events-none' : ''}`}
+                                className={`bg-white p-3.5 rounded-2xl border-2 transition-all flex items-center cursor-pointer ${inCart ? `border-indigo-500 bg-indigo-50/30` : 'border-slate-100 hover:border-slate-300'} ${outOfStock ? 'opacity-50 pointer-events-none' : ''}`}
                             >
                                 {p.image_url ? (
                                     <img src={p.image_url} className="h-12 w-12 rounded-xl object-cover border border-slate-200 mr-4" alt={p.name} />
@@ -434,7 +441,7 @@ export default function Sale({ onBack, shop }: any) {
                                     <button 
                                         key={method}
                                         onClick={() => setPaymentMethod(method)}
-                                        className={`py-2 px-1 text-xs font-bold rounded-xl border-2 transition-all ${paymentMethod === method ? `border-${themeClasses.primaryBg.split('-')[1]}-500 ${themeClasses.lightBg} ${themeClasses.primaryText}` : 'border-slate-200 text-slate-500 bg-white hover:bg-slate-50'}`}
+                                        className={`py-2 px-1 text-xs font-bold rounded-xl border-2 transition-all ${paymentMethod === method ? `border-indigo-500 bg-indigo-50 text-indigo-700` : 'border-slate-200 text-slate-500 bg-white hover:bg-slate-50'}`}
                                     >
                                         {method}
                                     </button>
@@ -464,16 +471,14 @@ export default function Sale({ onBack, shop }: any) {
     if (currentView === 'receipt' && receiptData) {
         return (
             <div className="h-screen flex flex-col bg-slate-100">
-                <style>
-                    {`
+                <style dangerouslySetInnerHTML={{ __html: `
                     @media print {
                         body * { visibility: hidden; }
                         #printable-receipt, #printable-receipt * { visibility: visible; }
                         #printable-receipt { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; background: white; }
                         .no-print { display: none !important; }
                     }
-                    `}
-                </style>
+                `}} />
 
                 <div className="flex-1 overflow-y-auto p-4 flex justify-center">
                     <div id="printable-receipt" className="bg-white w-full max-w-md p-6 rounded-2xl shadow-sm border border-slate-200">
@@ -548,7 +553,7 @@ export default function Sale({ onBack, shop }: any) {
 
                         <div className="mt-10 text-center">
                             <p className="text-xs font-bold text-slate-800">Thank you for your business!</p>
-                            <p className="text-[10px] text-slate-400 mt-1">Generated by Stashio POS</p>
+                            <p className="text-[10px] text-slate-400 mt-1">Generated by App</p>
                         </div>
                     </div>
                 </div>

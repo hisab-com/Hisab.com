@@ -279,7 +279,6 @@ export default function ProductList({ onBack, shop }: any) {
             setShowScannerModal(false);
         }
     };
-
     const printPDF = async () => {
         setIsGeneratingPdf(true);
         try {
@@ -344,6 +343,30 @@ export default function ProductList({ onBack, shop }: any) {
                 footStyles: { fillColor: [243, 244, 246], textColor: [0, 0, 0], fontStyle: 'bold', font: 'BanglaFont' },
                 showFoot: 'lastPage'
             });
+
+            // পিডিএফ জেনারেট হওয়ার সাথে সাথে ব্রাউজারকে প্রিন্ট ডায়লগ ওপেন করতে বলা
+            doc.autoPrint();
+            
+            // পিডিএফকে Blob এ কনভার্ট করে নতুন ট্যাবে ওপেন করা
+            const pdfBlob = doc.output('blob');
+            const blobUrl = URL.createObjectURL(pdfBlob);
+            
+            const printWindow = window.open(blobUrl, '_blank');
+            
+            // যদি ব্রাউজার পপ-আপ ব্লক করে রাখে, তাহলে সেম উইন্ডোতে ওপেন হবে
+            if (!printWindow) {
+                alert(t.popupBlocked || "Pop-up blocked. Opening in the same window.");
+                window.location.href = blobUrl;
+            }
+            
+        } catch (error) {
+            console.error("PDF Print Error: ", error);
+            alert(t.pdfError || "পিডিএফ তৈরি করতে সমস্যা হয়েছে।");
+        } finally {
+            setIsGeneratingPdf(false);
+        }
+    };
+
 
             // পিডিএফ সরাসরি প্রিন্ট করার লজিক
             doc.autoPrint();

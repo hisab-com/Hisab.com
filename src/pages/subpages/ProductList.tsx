@@ -3,7 +3,7 @@ import PageHeader from '../../components/PageHeader';
 import { Plus, Package, Edit, Trash2, Search, Barcode, MoreVertical, Layers, FileText, FileSpreadsheet, X, Upload, Check, Loader2, AlertTriangle, Calendar, Tag, Minus } from 'lucide-react';
 import { useAppConfig } from '../../context/AppConfigContext';
 import { databases, DB_ID, PRODUCTS_COLLECTION, STOCK_HISTORY_COLLECTION, ID, Query } from '../../lib/appwrite';
-import { uploadToUploadMe } from '../../utils/uploadMe';
+import { uploadToCloudinary, DEFAULT_CLOUDINARY } from '../../utils/cloudinary';
 import { Html5Qrcode } from 'html5-qrcode';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -91,10 +91,30 @@ export default function ProductList({ onBack, shop }: any) {
         setIsSaving(true);
         try {
             let finalImageUrl = pImageUrl;
-            if (pImage && shop.uploadme_api_key) {
-                finalImageUrl = await uploadToUploadMe(pImage, shop.uploadme_api_key);
-            } else if (pImage && !shop.uploadme_api_key) {
-                alert('দোকানের Upload Me API Key সেট করা নেই। ছবি আপলোড হবে না।');
+            if (pImage) {
+                let cloudName = '';
+                let apiKey = '';
+                let apiSecret = '';
+
+                if (shop.uploadme_api_key) {
+                    try {
+                        const parsed = JSON.parse(shop.uploadme_api_key);
+                        if (parsed.cloudName) cloudName = parsed.cloudName;
+                        if (parsed.apiKey) apiKey = parsed.apiKey;
+                        if (parsed.apiSecret) apiSecret = parsed.apiSecret;
+                    } catch (e) {
+                        console.warn('Could not parse shop cloudinary credentials');
+                    }
+                }
+
+                if (!cloudName || !apiKey || !apiSecret) {
+                    alert('দয়া করে সেটিংস থেকে Cloudinary API Key, Secret এবং Cloud Name যুক্ত করুন।');
+                    setIsSaving(false);
+                    return;
+                }
+
+                const uploadRes = await uploadToCloudinary(pImage, cloudName, apiKey, apiSecret);
+                finalImageUrl = uploadRes.url;
             }
 
             const productData = {
@@ -107,11 +127,11 @@ export default function ProductList({ onBack, shop }: any) {
                 unit: pUnit,
                 image_url: finalImageUrl,
                 barcode: pBarcode,
-                is_wholesale: isWholesale,
+                is_wholesale: isWholesale ? "true" : "false",
                 wholesale_price: isWholesale ? Number(pWholesalePrice) : 0,
-                has_alert: hasAlert,
+                has_alert: hasAlert ? "true" : "false",
                 alert_qty: hasAlert ? Number(pAlertQty) : 5,
-                has_expiry: hasExpiry,
+                has_expiry: hasExpiry ? "true" : "false",
                 expire_date: hasExpiry ? pExpireDate : ''
             };
 
@@ -145,9 +165,37 @@ export default function ProductList({ onBack, shop }: any) {
         }
     };
 
-    const handleDeleteProduct = async (id: string) => {
+    const handleDeleteProduct = async (id: string, imageUrl?: string) => {
         if (!window.confirm("Are you sure you want to PERMANENTLY delete this product?")) return;
         try {
+            if (imageUrl && imageUrl.includes('cloudinary.com')) {
+                // Extract public ID from URL
+                const parts = imageUrl.split('/');
+                const filename = parts[parts.length - 1];
+                const publicId = filename.split('.')[0];
+                
+                let cloudName = '';
+                let apiKey = '';
+                let apiSecret = '';
+
+                if (shop.uploadme_api_key) {
+                    try {
+                        const parsed = JSON.parse(shop.uploadme_api_key);
+                        if (parsed.cloudName) cloudName = parsed.cloudName;
+                        if (parsed.apiKey) apiKey = parsed.apiKey;
+                        if (parsed.apiSecret) apiSecret = parsed.apiSecret;
+                    } catch (e) {
+                        // Ignore parse error
+                    }
+                }
+
+                if (cloudName && apiKey && apiSecret) {
+                    import('../../utils/cloudinary').then(({ deleteFromCloudinary }) => {
+                        deleteFromCloudinary(publicId, cloudName, apiKey, apiSecret).catch(console.error);
+                    });
+                }
+            }
+
             await databases.deleteDocument(DB_ID, PRODUCTS_COLLECTION, id);
             setProducts(products.filter(p => p.$id !== id));
         } catch (error) {
@@ -185,11 +233,11 @@ export default function ProductList({ onBack, shop }: any) {
             setPBarcode(product.barcode || '');
             setPImage(null);
             setPImageUrl(product.image_url || '');
-            setIsWholesale(product.is_wholesale || false);
+            setIsWholesale(product.is_wholesale === true || product.is_wholesale === 'true');
             setPWholesalePrice(product.wholesale_price?.toString() || '');
-            setHasAlert(product.has_alert || false);
+            setHasAlert(product.has_alert === true || product.has_alert === 'true');
             setPAlertQty(product.alert_qty?.toString() || '5');
-            setHasExpiry(product.has_expiry || false);
+            setHasExpiry(product.has_expiry === true || product.has_expiry === 'true');
             setPExpireDate(product.expire_date || '');
         }
         setShowProductModal(true);
@@ -385,7 +433,8 @@ export default function ProductList({ onBack, shop }: any) {
                     </div>
                 ) : (
                     displayedProducts.map(p => {
-                        const isLowStock = p.has_alert && p.stock <= p.alert_qty;
+                        const hasAlertParsed = p.has_alert === true || p.has_alert === 'true';
+                        const isLowStock = hasAlertParsed && p.stock <= p.alert_qty;
                         return (
                             <div key={p.$id} className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex items-center relative transition-all hover:shadow-md">
                                 {p.image_url ? (
@@ -426,7 +475,7 @@ export default function ProductList({ onBack, shop }: any) {
                                         <button onClick={() => { setStockUpdateId(p.$id); setStockUpdateName(p.name); setNewStockInput(p.stock); setShowStockModal(true); setActiveMenu(null); }} className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center">
                                             <Layers className="h-4 w-4 mr-2 text-emerald-500" /> Quick Stock
                                         </button>
-                                        <button onClick={() => handleDeleteProduct(p.$id)} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center">
+                                        <button onClick={() => handleDeleteProduct(p.$id, p.image_url)} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center">
                                             <Trash2 className="h-4 w-4 mr-2" /> Delete
                                         </button>
                                     </div>

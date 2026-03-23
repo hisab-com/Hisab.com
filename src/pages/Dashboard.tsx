@@ -8,7 +8,7 @@ import ReportTab from '../components/tabs/ReportTab';
 import SettingsTab from '../components/tabs/SettingsTab';
 import SubPageRenderer from './subpages/SubPageRenderer';
 import AppAccessModal from '../components/modals/AppAccessModal';
-import { uploadToUploadMe } from '../utils/uploadMe';
+import { uploadToCloudinary, DEFAULT_CLOUDINARY } from '../utils/cloudinary';
 
 export default function Dashboard() {
     const { user, logout } = useAuth();
@@ -25,7 +25,6 @@ export default function Dashboard() {
     const [showCreateShop, setShowCreateShop] = useState(false);
     const [newShopName, setNewShopName] = useState('');
     const [newShopAddress, setNewShopAddress] = useState('');
-    const [newShopUploadMeApi, setNewShopUploadMeApi] = useState('');
     const [newShopLogo, setNewShopLogo] = useState<File | null>(null);
     const [isCreating, setIsCreating] = useState(false);
 
@@ -98,12 +97,20 @@ export default function Dashboard() {
         setIsCreating(true);
         try {
             let logoUrl = '';
-            if (newShopLogo && newShopUploadMeApi) {
+            if (newShopLogo) {
                 try {
-                    logoUrl = await uploadToUploadMe(newShopLogo, newShopUploadMeApi);
-                } catch (uploadError) {
+                    const uploadRes = await uploadToCloudinary(
+                        newShopLogo, 
+                        DEFAULT_CLOUDINARY.cloudName, 
+                        DEFAULT_CLOUDINARY.apiKey, 
+                        DEFAULT_CLOUDINARY.apiSecret
+                    );
+                    logoUrl = uploadRes.url;
+                } catch (uploadError: any) {
                     console.error('Failed to upload logo:', uploadError);
-                    alert('ছবি আপলোড করতে সমস্যা হয়েছে।');
+                    alert(uploadError.message || 'ছবি আপলোড করতে সমস্যা হয়েছে।');
+                    setIsCreating(false);
+                    return;
                 }
             }
 
@@ -112,7 +119,7 @@ export default function Dashboard() {
                 owner_id: user?.$id,
                 allowed_mobiles: [],
                 address: newShopAddress || "",
-                uploadme_api_key: newShopUploadMeApi || "",
+                uploadme_api_key: "",
                 logo_url: logoUrl || "",
                 access_roles: "{}"
             });
@@ -121,7 +128,6 @@ export default function Dashboard() {
             setShowCreateShop(false);
             setNewShopName('');
             setNewShopAddress('');
-            setNewShopUploadMeApi('');
             setNewShopLogo(null);
         } catch (error) {
             console.error(error);
@@ -319,17 +325,6 @@ export default function Dashboard() {
                                     className={`w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-opacity-50 outline-none transition-all focus:border-transparent ${themeClasses.primaryText.replace('text-', 'focus:ring-')}`}
                                     placeholder="Shop Address"
                                 />
-                            </div>
-                            <div className="mb-4">
-                                <label className="block text-sm font-medium text-slate-700 mb-2">Upload Me API Key</label>
-                                <input
-                                    type="text"
-                                    value={newShopUploadMeApi}
-                                    onChange={(e) => setNewShopUploadMeApi(e.target.value)}
-                                    className={`w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-opacity-50 outline-none transition-all focus:border-transparent ${themeClasses.primaryText.replace('text-', 'focus:ring-')}`}
-                                    placeholder="API Key for image uploads"
-                                />
-                                <p className="text-xs text-slate-500 mt-1">This key will be permanent once set.</p>
                             </div>
                             <div className="mb-6">
                                 <label className="block text-sm font-medium text-slate-700 mb-2">Shop Logo</label>

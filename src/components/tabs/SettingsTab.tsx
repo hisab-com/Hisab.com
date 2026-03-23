@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAppConfig } from '../../context/AppConfigContext';
 import { Store, User, Globe, Palette, LogOut, Shield, ChevronRight, Plus, Check, DollarSign, Hash, X, Upload, Loader2 } from 'lucide-react';
 import { databases, DB_ID, SHOPS_COLLECTION, account } from '../../lib/appwrite';
-import { uploadToUploadMe } from '../../utils/uploadMe';
+import { uploadToCloudinary, DEFAULT_CLOUDINARY } from '../../utils/cloudinary';
 
 export default function SettingsTab({ 
     user, shops, currentShop, setCurrentShop, setShowCreateShop, setShowAccessModal, logout 
@@ -12,7 +12,9 @@ export default function SettingsTab({
     const [showShopProfile, setShowShopProfile] = useState(false);
     const [editShopName, setEditShopName] = useState('');
     const [editShopAddress, setEditShopAddress] = useState('');
-    const [editShopApi, setEditShopApi] = useState('');
+    const [editCloudName, setEditCloudName] = useState('');
+    const [editApiKey, setEditApiKey] = useState('');
+    const [editApiSecret, setEditApiSecret] = useState('');
     const [editShopLogo, setEditShopLogo] = useState<File | null>(null);
     const [isUpdatingShop, setIsUpdatingShop] = useState(false);
 
@@ -28,7 +30,16 @@ export default function SettingsTab({
     const openShopProfile = () => {
         setEditShopName(currentShop?.name || '');
         setEditShopAddress(currentShop?.address || '');
-        setEditShopApi(currentShop?.uploadme_api_key || '');
+        try {
+            const parsed = JSON.parse(currentShop?.uploadme_api_key || '{}');
+            setEditCloudName(parsed.cloudName || '');
+            setEditApiKey(parsed.apiKey || '');
+            setEditApiSecret(parsed.apiSecret || '');
+        } catch {
+            setEditCloudName('');
+            setEditApiKey('');
+            setEditApiSecret('');
+        }
         setEditShopLogo(null);
         setShowShopProfile(true);
     };
@@ -65,17 +76,22 @@ export default function SettingsTab({
             }
 
             let avatarUrl = user?.prefs?.avatar_url || '';
-            const finalApiKey = currentShop?.uploadme_api_key;
 
-            if (editUserAvatar && finalApiKey) {
+            if (editUserAvatar) {
                 try {
-                    avatarUrl = await uploadToUploadMe(editUserAvatar, finalApiKey);
-                } catch (uploadError) {
+                    const uploadRes = await uploadToCloudinary(
+                        editUserAvatar, 
+                        DEFAULT_CLOUDINARY.cloudName, 
+                        DEFAULT_CLOUDINARY.apiKey, 
+                        DEFAULT_CLOUDINARY.apiSecret
+                    );
+                    avatarUrl = uploadRes.url;
+                } catch (uploadError: any) {
                     console.error('Failed to upload avatar:', uploadError);
-                    alert('ছবি আপলোড করতে সমস্যা হয়েছে।');
+                    alert(uploadError.message || 'ছবি আপলোড করতে সমস্যা হয়েছে।');
+                    setIsUpdatingUser(false);
+                    return;
                 }
-            } else if (editUserAvatar && !finalApiKey) {
-                alert('ছবি আপলোড করার জন্য দোকানের Upload Me API Key সেট করা প্রয়োজন।');
             }
 
             const newPrefs = {
@@ -101,21 +117,33 @@ export default function SettingsTab({
         setIsUpdatingShop(true);
         try {
             let logoUrl = currentShop.logo_url;
-            const finalApiKey = currentShop.uploadme_api_key || editShopApi;
+            const shopApiConfig = JSON.stringify({
+                cloudName: editCloudName,
+                apiKey: editApiKey,
+                apiSecret: editApiSecret
+            });
 
-            if (editShopLogo && finalApiKey) {
+            if (editShopLogo) {
                 try {
-                    logoUrl = await uploadToUploadMe(editShopLogo, finalApiKey);
-                } catch (uploadError) {
+                    const uploadRes = await uploadToCloudinary(
+                        editShopLogo, 
+                        DEFAULT_CLOUDINARY.cloudName, 
+                        DEFAULT_CLOUDINARY.apiKey, 
+                        DEFAULT_CLOUDINARY.apiSecret
+                    );
+                    logoUrl = uploadRes.url;
+                } catch (uploadError: any) {
                     console.error('Failed to upload logo:', uploadError);
-                    alert('ছবি আপলোড করতে সমস্যা হয়েছে।');
+                    alert(uploadError.message || 'ছবি আপলোড করতে সমস্যা হয়েছে।');
+                    setIsUpdatingShop(false);
+                    return;
                 }
             }
 
             const updatedShop = await databases.updateDocument(DB_ID, SHOPS_COLLECTION, currentShop.$id, {
                 name: editShopName,
                 address: editShopAddress || "",
-                uploadme_api_key: finalApiKey || "",
+                uploadme_api_key: shopApiConfig,
                 logo_url: logoUrl || "",
                 access_roles: currentShop.access_roles || "{}"
             });
@@ -315,20 +343,35 @@ export default function SettingsTab({
                                 />
                             </div>
                             <div className="mb-4">
-                                <label className="block text-sm font-medium text-slate-700 mb-2">Upload Me API Key</label>
+                                <label className="block text-sm font-medium text-slate-700 mb-2">Cloudinary Cloud Name</label>
                                 <input
                                     type="text"
-                                    value={editShopApi}
-                                    onChange={(e) => setEditShopApi(e.target.value)}
-                                    disabled={!!currentShop?.uploadme_api_key}
-                                    className={`w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-opacity-50 outline-none transition-all focus:border-transparent ${themeClasses.primaryText.replace('text-', 'focus:ring-')} disabled:bg-slate-100 disabled:text-slate-500`}
-                                    placeholder="API Key for image uploads"
+                                    value={editCloudName}
+                                    onChange={(e) => setEditCloudName(e.target.value)}
+                                    className={`w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-opacity-50 outline-none transition-all focus:border-transparent ${themeClasses.primaryText.replace('text-', 'focus:ring-')}`}
+                                    placeholder="e.g. dxxxxxxx"
                                 />
-                                {currentShop?.uploadme_api_key ? (
-                                    <p className="text-xs text-slate-500 mt-1">API Key is already set and cannot be changed.</p>
-                                ) : (
-                                    <p className="text-xs text-slate-500 mt-1">This key will be permanent once set.</p>
-                                )}
+                            </div>
+                            <div className="mb-4">
+                                <label className="block text-sm font-medium text-slate-700 mb-2">Cloudinary API Key</label>
+                                <input
+                                    type="text"
+                                    value={editApiKey}
+                                    onChange={(e) => setEditApiKey(e.target.value)}
+                                    className={`w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-opacity-50 outline-none transition-all focus:border-transparent ${themeClasses.primaryText.replace('text-', 'focus:ring-')}`}
+                                    placeholder="e.g. 123456789012345"
+                                />
+                            </div>
+                            <div className="mb-4">
+                                <label className="block text-sm font-medium text-slate-700 mb-2">Cloudinary API Secret</label>
+                                <input
+                                    type="password"
+                                    value={editApiSecret}
+                                    onChange={(e) => setEditApiSecret(e.target.value)}
+                                    className={`w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-opacity-50 outline-none transition-all focus:border-transparent ${themeClasses.primaryText.replace('text-', 'focus:ring-')}`}
+                                    placeholder="e.g. abcdefghijklmnopqrstuvwxyz"
+                                />
+                                <p className="text-xs text-slate-500 mt-1">এই API Key গুলো না দিলে আপনি প্রোডাক্টের ছবি আপলোড করতে পারবেন না।</p>
                             </div>
                             <div className="mb-6">
                                 <label className="block text-sm font-medium text-slate-700 mb-2">Shop Logo</label>

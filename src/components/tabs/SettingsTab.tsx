@@ -21,6 +21,7 @@ export default function SettingsTab({
     const [editUserEmail, setEditUserEmail] = useState('');
     const [editUserMobile, setEditUserMobile] = useState('');
     const [editUserPassword, setEditUserPassword] = useState('');
+    const [editUserOldPassword, setEditUserOldPassword] = useState('');
     const [editUserAvatar, setEditUserAvatar] = useState<File | null>(null);
     const [isUpdatingUser, setIsUpdatingUser] = useState(false);
 
@@ -37,6 +38,7 @@ export default function SettingsTab({
         setEditUserEmail(user?.email || '');
         setEditUserMobile(user?.prefs?.mobile || '');
         setEditUserPassword('');
+        setEditUserOldPassword('');
         setEditUserAvatar(null);
         setShowUserProfile(true);
     };
@@ -54,7 +56,12 @@ export default function SettingsTab({
             }
 
             if (editUserPassword) {
-                await account.updatePassword(editUserPassword);
+                if (!editUserOldPassword) {
+                    alert('পাসওয়ার্ড পরিবর্তন করতে বর্তমান পাসওয়ার্ড দেওয়া আবশ্যক।');
+                    setIsUpdatingUser(false);
+                    return;
+                }
+                await account.updatePassword(editUserPassword, editUserOldPassword);
             }
 
             let avatarUrl = user?.prefs?.avatar_url || '';
@@ -425,6 +432,16 @@ export default function SettingsTab({
                                 {editUserMobile !== user?.prefs?.mobile && (
                                     <p className="text-xs text-amber-600 mt-1">Changing mobile requires verification code.</p>
                                 )}
+                            </div>
+                            <div className="mb-4">
+                                <label className="block text-sm font-medium text-slate-700 mb-2">Current Password</label>
+                                <input
+                                    type="password"
+                                    value={editUserOldPassword}
+                                    onChange={(e) => setEditUserOldPassword(e.target.value)}
+                                    className={`w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-opacity-50 outline-none transition-all focus:border-transparent ${themeClasses.primaryText.replace('text-', 'focus:ring-')}`}
+                                    placeholder="Required only if changing password"
+                                />
                             </div>
                             <div className="mb-4">
                                 <label className="block text-sm font-medium text-slate-700 mb-2">New Password (Optional)</label>

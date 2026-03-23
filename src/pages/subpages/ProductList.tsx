@@ -19,7 +19,6 @@ export default function ProductList({ onBack, shop }: any) {
     const [showProductModal, setShowProductModal] = useState(false);
     const [showStockModal, setShowStockModal] = useState(false);
     const [showScannerModal, setShowScannerModal] = useState(false);
-    const [isPrinting, setIsPrinting] = useState(false);
 
     // Form State
     const [editProductId, setEditProductId] = useState('');
@@ -277,441 +276,399 @@ export default function ProductList({ onBack, shop }: any) {
         }
     };
 
-    // --- সম্পূর্ণ নতুন এবং অরিজিনাল মোবাইল প্রিন্ট ফাংশন ---
+    // --- ডিরেক্ট নেটিভ প্রিন্ট ফাংশন ---
     const handleNativePrint = () => {
-        setIsPrinting(true);
-        try {
-            const printWindow = window.open('', '_blank');
-            if (!printWindow) {
-                alert(t.popupBlocked || "Pop-up blocked. Please allow pop-ups to print.");
-                setIsPrinting(false);
-                return;
-            }
-
-            let tableRows = '';
-            let totalValue = 0;
-            let totalQty = 0;
-
-            filteredProducts.forEach((p, index) => {
-                const val = p.stock * p.sell_price;
-                totalValue += val;
-                totalQty += Number(p.stock);
-                
-                tableRows += `
-                    <tr>
-                        <td style="text-align: center; color: #666;">${index + 1}</td>
-                        <td style="font-weight: 600; color: #1e293b;">${p.name} ${p.brand ? `<span style="color: #64748b; font-size: 10px; font-weight: normal;">(${p.brand})</span>` : ''}</td>
-                        <td style="text-align: right; font-weight: 500;">${p.stock} <span style="font-size: 10px; color: #64748b;">${p.unit || ''}</span></td>
-                        <td style="text-align: right;">${p.buy_price.toFixed(2)}</td>
-                        <td style="text-align: right;">${p.sell_price.toFixed(2)}</td>
-                        <td style="text-align: right; font-weight: 600;">${val.toFixed(2)}</td>
-                    </tr>
-                `;
-            });
-
-            const htmlContent = `
-                <!DOCTYPE html>
-                <html lang="en">
-                <head>
-                    <meta charset="UTF-8">
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    <title>${shop.name} - Inventory Report</title>
-                    <style>
-                        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;600;700&display=swap');
-                        body { 
-                            font-family: 'Noto Sans Bengali', system-ui, -apple-system, sans-serif; 
-                            padding: 20px; 
-                            color: #334155; 
-                            line-height: 1.5;
-                            margin: 0 auto;
-                            max-width: 1000px;
-                        }
-                        .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #e2e8f0; padding-bottom: 15px; }
-                        h2 { color: #0f172a; margin: 0 0 5px 0; font-size: 24px; font-weight: 700; }
-                        p { color: #64748b; margin: 0; font-size: 13px; }
-                        
-                        .summary { display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 14px; font-weight: 600; background: #f8fafc; padding: 10px 15px; border-radius: 8px; }
-                        
-                        table { width: 100%; border-collapse: collapse; font-size: 12px; }
-                        th, td { border-bottom: 1px solid #e2e8f0; padding: 10px 8px; }
-                        th { background-color: #f1f5f9; color: #475569; font-weight: 700; text-align: right; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
-                        th:nth-child(1), th:nth-child(2) { text-align: left; }
-                        
-                        .total-row td { font-weight: bold; background-color: #f8fafc; color: #0f172a; font-size: 13px; border-top: 2px solid #cbd5e1; }
-                        
-                        @media print {
-                            body { padding: 0; max-width: none; }
-                            @page { margin: 1cm; size: A4 portrait; }
-                            .no-print { display: none; }
-                        }
-                    </style>
-                </head>
-                <body>
-                    <div class="header">
-                        <h2>${shop.name}</h2>
-                        <p>${t.inventoryReport || "Inventory Report"} | Date: ${new Date().toLocaleDateString()}</p>
-                    </div>
-                    
-                    <div class="summary">
-                        <span>Total Items: <span style="color: #2563eb;">${filteredProducts.length}</span></span>
-                        <span>Total Quantity: <span style="color: #16a34a;">${totalQty}</span></span>
-                        <span>Total Value: <span style="color: #dc2626;">${formatCurrency(totalValue)}</span></span>
-                    </div>
-
-                    <table>
-                        <thead>
-                            <tr>
-                                <th style="text-align: center; width: 40px;">#</th>
-                                <th>${t.product || "Product Name"}</th>
-                                <th>${t.stock || "Stock Qty"}</th>
-                                <th>${t.buyPrice || "Buy"}</th>
-                                <th>${t.sellPrice || "Sell"}</th>
-                                <th>${t.totalValue || "Total Value"}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${tableRows}
-                            <tr class="total-row">
-                                <td colspan="5" style="text-align: right;">${t.total || "Grand Total"}:</td>
-                                <td style="text-align: right;">${formatCurrency(totalValue)}</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                    <script>
-                        window.onload = function() {
-                            setTimeout(function() {
-                                window.print();
-                                setTimeout(function() { window.close(); }, 500);
-                            }, 500);
-                        };
-                    </script>
-                </body>
-                </html>
-            `;
-
-            printWindow.document.open();
-            printWindow.document.write(htmlContent);
-            printWindow.document.close();
-
-        } catch (error) {
-            console.error("Print Error: ", error);
-            alert(t.pdfError || "প্রিন্ট করতে সমস্যা হয়েছে।");
-        } finally {
-            setIsPrinting(false);
-        }
+        window.print();
     };
 
+    // প্রিন্ট পেজের জন্য টোটাল ক্যালকুলেশন
+    const totalValue = filteredProducts.reduce((acc, curr) => acc + (curr.stock * curr.sell_price), 0);
+    const totalQty = filteredProducts.reduce((acc, curr) => acc + Number(curr.stock), 0);
+
     return (
-        <div className="h-screen bg-slate-50 flex flex-col relative">
-            <PageHeader 
-                title={t.productList || "Product List"} 
-                onBack={onBack} 
-                rightContent={
-                    <div className="flex space-x-2">
-                        {/* Native Print Button */}
-                        <button onClick={handleNativePrint} disabled={isPrinting} className="px-3 py-1.5 bg-white/20 text-white rounded-xl hover:bg-white/30 transition-colors shadow-sm active:scale-95 disabled:opacity-50 flex items-center font-semibold text-sm" title={t.printPdf || "Print List"}>
-                            {isPrinting ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <FileText className="h-4 w-4 mr-1.5" />}
-                            {t.print || "Print"}
-                        </button>
-                        
-                        {/* Add Button */}
-                        <button onClick={() => openModal('add')} className={`px-3 py-1.5 bg-white ${themeClasses.primaryText} font-bold rounded-xl shadow-sm hover:bg-slate-50 transition-colors active:scale-95 flex items-center text-sm`}>
-                            <Plus className="h-4 w-4 mr-1" /> {t.add || "Add"}
-                        </button>
-                    </div>
-                } 
-            />
-            
-            <div className="p-4 bg-white border-b border-slate-200 shadow-sm z-10">
-                <div className="flex space-x-3">
-                    <div className="relative flex-1 group">
-                        <Search className={`absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:${themeClasses.primaryText.split(' ')[0]} transition-colors`} />
-                        <input 
-                            type="text" 
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            placeholder={t.searchPlaceholder || "Search by name, brand or barcode..."} 
-                            className="w-full pl-12 pr-4 py-3 bg-slate-100 border border-transparent rounded-2xl focus:bg-white focus:border-slate-300 focus:ring-4 focus:ring-slate-100 outline-none transition-all text-sm font-medium" 
-                        />
-                    </div>
-                    <button onClick={() => startScanner('search')} className={`p-3 ${themeClasses.primaryBg} text-white rounded-2xl shadow-sm active:scale-95 flex items-center justify-center hover:opacity-90 transition-opacity`}>
-                        <Barcode className="h-6 w-6" />
-                    </button>
-                </div>
-            </div>
+        <React.Fragment>
+            {/* --- প্রিন্ট স্টাইল (শুধুমাত্র প্রিন্ট করার সময় কাজ করবে) --- */}
+            <style>
+                {`
+                @media print {
+                    @page { margin: 10mm; size: A4 portrait; }
+                    body { background-color: white !important; margin: 0; padding: 0; }
+                    .no-print { display: none !important; }
+                    .print-only { display: block !important; }
+                    
+                    /* Print Table Styling */
+                    .print-table { width: 100%; border-collapse: collapse; font-size: 12px; font-family: 'Noto Sans Bengali', sans-serif; color: #333; }
+                    .print-table th, .print-table td { border-bottom: 1px solid #e5e7eb; padding: 8px 4px; text-align: right; }
+                    .print-table th { font-weight: bold; color: #1f2937; border-bottom: 2px solid #d1d5db; }
+                    .print-table th:nth-child(1), .print-table td:nth-child(1) { text-align: center; width: 40px; }
+                    .print-table th:nth-child(2), .print-table td:nth-child(2) { text-align: left; }
+                    
+                    .print-header { text-align: center; margin-bottom: 20px; }
+                    .print-header h2 { font-size: 24px; font-weight: bold; margin: 0 0 5px 0; color: #000; }
+                    .print-header p { margin: 0; font-size: 12px; color: #666; }
+                    
+                    .print-summary { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 15px; font-size: 14px; border-bottom: 1px solid #000; padding-bottom: 5px; }
+                }
+                `}
+            </style>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar" onClick={() => setActiveMenu(null)}>
-                {loading ? (
-                    <div className="flex flex-col justify-center items-center h-40">
-                        <Loader2 className={`h-8 w-8 animate-spin ${themeClasses.primaryText} mb-3`} />
-                        <p className="text-slate-500 font-medium">{t.loading || "Loading inventory..."}</p>
-                    </div>
-                ) : displayedProducts.length === 0 ? (
-                    <div className="text-center py-16 text-slate-500 bg-white rounded-3xl border border-slate-200 border-dashed">
-                        <Package className="h-16 w-16 mx-auto mb-4 text-slate-300" />
-                        <h3 className="text-lg font-bold text-slate-700 mb-1">{t.noProducts || "No products found"}</h3>
-                        <p className="text-sm">{t.clickToAdd || "Click the Add button to create a new product."}</p>
-                    </div>
-                ) : (
-                    displayedProducts.map(p => {
-                        const hasAlertParsed = p.has_alert === true || p.has_alert === 'true';
-                        const isLowStock = hasAlertParsed && p.stock <= p.alert_qty;
-                        return (
-                            <div key={p.$id} className={`bg-white p-3.5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all flex items-center relative group`}>
-                                {p.image_url ? (
-                                    <img src={p.image_url} alt={p.name} className="h-14 w-14 rounded-xl object-cover border border-slate-100 mr-4 shadow-sm" />
-                                ) : (
-                                    <div className={`h-14 w-14 rounded-xl ${themeClasses.lightBg} ${themeClasses.primaryText} flex items-center justify-center mr-4 border border-slate-100 shadow-sm`}>
-                                        <Package className="h-6 w-6" />
-                                    </div>
-                                )}
-                                <div className="flex-1 min-w-0">
-                                    <h3 className="font-bold text-slate-800 text-[15px] truncate mb-0.5">{p.name}</h3>
-                                    {p.brand && <span className={`text-[11px] font-bold ${themeClasses.primaryText} mb-1.5 flex items-center`}><Tag className="h-3 w-3 mr-1" />{p.brand}</span>}
-                                    <div className="flex flex-wrap gap-2 mt-1">
-                                        <span className={`text-[11px] px-2.5 py-0.5 rounded-md font-bold ${isLowStock ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-slate-100 text-slate-600'}`}>
-                                            {t.stock || "Stock"}: {p.stock} {p.unit}
-                                        </span>
-                                        <span className={`text-[11px] px-2.5 py-0.5 rounded-md font-bold bg-emerald-50 text-emerald-700 border border-emerald-100`}>
-                                            {t.buy || "Buy"}: {formatCurrency(p.buy_price)}
-                                        </span>
-                                        <span className={`text-[11px] px-2.5 py-0.5 rounded-md font-bold ${themeClasses.lightBg} ${themeClasses.primaryText} border border-transparent`}>
-                                            {t.sell || "Sell"}: {formatCurrency(p.sell_price)}
-                                        </span>
-                                    </div>
-                                </div>
-                                
-                                <button 
-                                    onClick={(e) => { e.stopPropagation(); setActiveMenu(activeMenu === p.$id ? null : p.$id); }}
-                                    className={`p-2 text-slate-400 hover:${themeClasses.primaryText.split(' ')[0]} hover:${themeClasses.lightBg.split(' ')[0]} rounded-xl ml-2 transition-colors`}
-                                >
-                                    <MoreVertical className="h-6 w-6" />
-                                </button>
-
-                                {activeMenu === p.$id && (
-                                    <div className="absolute right-14 top-1/2 -translate-y-1/2 bg-white rounded-2xl shadow-xl border border-slate-100 py-1.5 z-20 min-w-[160px] animate-in fade-in zoom-in-95 duration-150">
-                                        <button onClick={() => openModal('edit', p)} className="w-full text-left px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 flex items-center">
-                                            <Edit className={`h-4 w-4 mr-3 ${themeClasses.primaryText}`} /> {t.editDetails || "Edit Details"}
-                                        </button>
-                                        <button onClick={() => { setStockUpdateId(p.$id); setStockUpdateName(p.name); setNewStockInput(p.stock); setShowStockModal(true); setActiveMenu(null); }} className="w-full text-left px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 flex items-center">
-                                            <Layers className="h-4 w-4 mr-3 text-emerald-500" /> {t.updateStock || "Update Stock"}
-                                        </button>
-                                        <div className="h-px bg-slate-100 my-1 mx-2"></div>
-                                        <button onClick={() => handleDeleteProduct(p.$id)} className="w-full text-left px-4 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50 flex items-center">
-                                            <Trash2 className="h-4 w-4 mr-3" /> {t.deleteProduct || "Delete Product"}
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })
-                )}
-                {filteredProducts.length > page * itemsPerPage && (
-                    <button 
-                        onClick={() => setPage(p => p + 1)}
-                        className={`w-full py-4 mt-4 ${themeClasses.lightBg} rounded-2xl ${themeClasses.primaryText} font-bold shadow-sm hover:opacity-80 active:scale-95 transition-all`}
-                    >
-                        {t.loadMore || "Load More Products"}
-                    </button>
-                )}
-            </div>
-
-            {/* --- Product Add/Edit Modal --- */}
-            {showProductModal && (
-                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/60 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200">
-                    <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] animate-in slide-in-from-bottom-10 sm:slide-in-from-bottom-0">
-                        <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0 z-10">
-                            <h3 className="text-xl font-extrabold text-slate-800 flex items-center">
-                                <Package className={`h-6 w-6 mr-2 ${themeClasses.primaryText}`} /> {editProductId ? (t.editProduct || 'Edit Product') : (t.addProduct || 'Add New Product')}
-                            </h3>
-                            <button onClick={() => setShowProductModal(false)} className="p-2 bg-slate-100 text-slate-500 rounded-full hover:bg-slate-200 transition-colors">
-                                <X className="h-5 w-5" />
+            {/* =========================================
+                MAIN APP UI (HIDDEN DURING PRINT)
+                ========================================= */}
+            <div className="h-screen bg-slate-50 flex flex-col relative no-print">
+                <PageHeader 
+                    title={t.productList || "Product List"} 
+                    onBack={onBack} 
+                    rightContent={
+                        <div className="flex space-x-2">
+                            {/* Native Print Button */}
+                            <button onClick={handleNativePrint} className="p-2 bg-white/20 text-white rounded-xl hover:bg-white/30 transition-colors shadow-sm active:scale-95 flex items-center justify-center">
+                                <FileText className="h-5 w-5" />
+                            </button>
+                            
+                            {/* Add Button */}
+                            <button onClick={() => openModal('add')} className={`px-3 py-1.5 bg-white ${themeClasses.primaryText} font-bold rounded-xl shadow-sm hover:bg-slate-50 transition-colors active:scale-95 flex items-center text-sm`}>
+                                <Plus className="h-4 w-4 mr-1" /> {t.add || "Add"}
                             </button>
                         </div>
-                        
-                        <form onSubmit={handleSaveProduct} className="p-6 overflow-y-auto flex-1 custom-scrollbar">
-                            
-                            {/* Modern Image Upload Box */}
-                            <div className="flex flex-col items-center justify-center mb-8 relative">
-                                <div className="relative w-32 h-32 rounded-3xl border-2 border-slate-200 border-dashed bg-slate-50 hover:bg-slate-100 transition-colors flex items-center justify-center overflow-hidden group shadow-sm">
-                                    {pImage ? (
-                                        <img src={URL.createObjectURL(pImage)} className="w-full h-full object-cover" alt="Preview" />
-                                    ) : pImageUrl ? (
-                                        <img src={pImageUrl} className="w-full h-full object-cover" alt="Product" />
+                    } 
+                />
+                
+                <div className="p-4 bg-white border-b border-slate-200 shadow-sm z-10">
+                    <div className="flex space-x-3">
+                        <div className="relative flex-1 group">
+                            <Search className={`absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:${themeClasses.primaryText.split(' ')[0]} transition-colors`} />
+                            <input 
+                                type="text" 
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                placeholder={t.searchPlaceholder || "Search by name, brand or barcode..."} 
+                                className="w-full pl-12 pr-4 py-3 bg-slate-100 border border-transparent rounded-2xl focus:bg-white focus:border-slate-300 focus:ring-4 focus:ring-slate-100 outline-none transition-all text-sm font-medium" 
+                            />
+                        </div>
+                        <button onClick={() => startScanner('search')} className={`p-3 ${themeClasses.primaryBg} text-white rounded-2xl shadow-sm active:scale-95 flex items-center justify-center hover:opacity-90 transition-opacity`}>
+                            <Barcode className="h-6 w-6" />
+                        </button>
+                    </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar" onClick={() => setActiveMenu(null)}>
+                    {loading ? (
+                        <div className="flex flex-col justify-center items-center h-40">
+                            <Loader2 className={`h-8 w-8 animate-spin ${themeClasses.primaryText} mb-3`} />
+                            <p className="text-slate-500 font-medium">{t.loading || "Loading inventory..."}</p>
+                        </div>
+                    ) : displayedProducts.length === 0 ? (
+                        <div className="text-center py-16 text-slate-500 bg-white rounded-3xl border border-slate-200 border-dashed">
+                            <Package className="h-16 w-16 mx-auto mb-4 text-slate-300" />
+                            <h3 className="text-lg font-bold text-slate-700 mb-1">{t.noProducts || "No products found"}</h3>
+                            <p className="text-sm">{t.clickToAdd || "Click the Add button to create a new product."}</p>
+                        </div>
+                    ) : (
+                        displayedProducts.map(p => {
+                            const hasAlertParsed = p.has_alert === true || p.has_alert === 'true';
+                            const isLowStock = hasAlertParsed && p.stock <= p.alert_qty;
+                            return (
+                                <div key={p.$id} className={`bg-white p-3.5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all flex items-center relative group`}>
+                                    {p.image_url ? (
+                                        <img src={p.image_url} alt={p.name} className="h-14 w-14 rounded-xl object-cover border border-slate-100 mr-4 shadow-sm" />
                                     ) : (
-                                        <div className={`flex flex-col items-center justify-center text-slate-400 group-hover:${themeClasses.primaryText.split(' ')[0]} transition-colors`}>
-                                            <ImageIcon className="w-8 h-8 mb-2" />
-                                            <span className="text-[11px] font-bold uppercase tracking-wider">{t.addPhoto || "Add Photo"}</span>
+                                        <div className={`h-14 w-14 rounded-xl ${themeClasses.lightBg} ${themeClasses.primaryText} flex items-center justify-center mr-4 border border-slate-100 shadow-sm`}>
+                                            <Package className="h-6 w-6" />
                                         </div>
                                     )}
-                                    {!(pImage || pImageUrl) && (
-                                        <input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept="image/*" onChange={(e) => e.target.files && setPImage(e.target.files[0])} />
+                                    <div className="flex-1 min-w-0">
+                                        <h3 className="font-bold text-slate-800 text-[15px] truncate mb-0.5">{p.name}</h3>
+                                        {p.brand && <span className={`text-[11px] font-bold ${themeClasses.primaryText} mb-1.5 flex items-center`}><Tag className="h-3 w-3 mr-1" />{p.brand}</span>}
+                                        <div className="flex flex-wrap gap-2 mt-1">
+                                            <span className={`text-[11px] px-2.5 py-0.5 rounded-md font-bold ${isLowStock ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-slate-100 text-slate-600'}`}>
+                                                {t.stock || "Stock"}: {p.stock} {p.unit}
+                                            </span>
+                                            <span className={`text-[11px] px-2.5 py-0.5 rounded-md font-bold bg-emerald-50 text-emerald-700 border border-emerald-100`}>
+                                                {t.buy || "Buy"}: {formatCurrency(p.buy_price)}
+                                            </span>
+                                            <span className={`text-[11px] px-2.5 py-0.5 rounded-md font-bold ${themeClasses.lightBg} ${themeClasses.primaryText} border border-transparent`}>
+                                                {t.sell || "Sell"}: {formatCurrency(p.sell_price)}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); setActiveMenu(activeMenu === p.$id ? null : p.$id); }}
+                                        className={`p-2 text-slate-400 hover:${themeClasses.primaryText.split(' ')[0]} hover:${themeClasses.lightBg.split(' ')[0]} rounded-xl ml-2 transition-colors`}
+                                    >
+                                        <MoreVertical className="h-6 w-6" />
+                                    </button>
+
+                                    {activeMenu === p.$id && (
+                                        <div className="absolute right-14 top-1/2 -translate-y-1/2 bg-white rounded-2xl shadow-xl border border-slate-100 py-1.5 z-20 min-w-[160px] animate-in fade-in zoom-in-95 duration-150">
+                                            <button onClick={() => openModal('edit', p)} className="w-full text-left px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 flex items-center">
+                                                <Edit className={`h-4 w-4 mr-3 ${themeClasses.primaryText}`} /> {t.editDetails || "Edit Details"}
+                                            </button>
+                                            <button onClick={() => { setStockUpdateId(p.$id); setStockUpdateName(p.name); setNewStockInput(p.stock); setShowStockModal(true); setActiveMenu(null); }} className="w-full text-left px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 flex items-center">
+                                                <Layers className="h-4 w-4 mr-3 text-emerald-500" /> {t.updateStock || "Update Stock"}
+                                            </button>
+                                            <div className="h-px bg-slate-100 my-1 mx-2"></div>
+                                            <button onClick={() => handleDeleteProduct(p.$id)} className="w-full text-left px-4 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50 flex items-center">
+                                                <Trash2 className="h-4 w-4 mr-3" /> {t.deleteProduct || "Delete Product"}
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })
+                    )}
+                    {filteredProducts.length > page * itemsPerPage && (
+                        <button 
+                            onClick={() => setPage(p => p + 1)}
+                            className={`w-full py-4 mt-4 ${themeClasses.lightBg} rounded-2xl ${themeClasses.primaryText} font-bold shadow-sm hover:opacity-80 active:scale-95 transition-all`}
+                        >
+                            {t.loadMore || "Load More Products"}
+                        </button>
+                    )}
+                </div>
+
+                {/* --- Modals for App UI --- */}
+                {showProductModal && (
+                    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/60 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200">
+                        <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] animate-in slide-in-from-bottom-10 sm:slide-in-from-bottom-0">
+                            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0 z-10">
+                                <h3 className="text-xl font-extrabold text-slate-800 flex items-center">
+                                    <Package className={`h-6 w-6 mr-2 ${themeClasses.primaryText}`} /> {editProductId ? (t.editProduct || 'Edit Product') : (t.addProduct || 'Add New Product')}
+                                </h3>
+                                <button onClick={() => setShowProductModal(false)} className="p-2 bg-slate-100 text-slate-500 rounded-full hover:bg-slate-200 transition-colors">
+                                    <X className="h-5 w-5" />
+                                </button>
+                            </div>
+                            
+                            <form onSubmit={handleSaveProduct} className="p-6 overflow-y-auto flex-1 custom-scrollbar">
+                                {/* Image Upload */}
+                                <div className="flex flex-col items-center justify-center mb-8 relative">
+                                    <div className="relative w-32 h-32 rounded-3xl border-2 border-slate-200 border-dashed bg-slate-50 hover:bg-slate-100 transition-colors flex items-center justify-center overflow-hidden group shadow-sm">
+                                        {pImage ? (
+                                            <img src={URL.createObjectURL(pImage)} className="w-full h-full object-cover" alt="Preview" />
+                                        ) : pImageUrl ? (
+                                            <img src={pImageUrl} className="w-full h-full object-cover" alt="Product" />
+                                        ) : (
+                                            <div className={`flex flex-col items-center justify-center text-slate-400 group-hover:${themeClasses.primaryText.split(' ')[0]} transition-colors`}>
+                                                <ImageIcon className="w-8 h-8 mb-2" />
+                                                <span className="text-[11px] font-bold uppercase tracking-wider">{t.addPhoto || "Add Photo"}</span>
+                                            </div>
+                                        )}
+                                        {!(pImage || pImageUrl) && (
+                                            <input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept="image/*" onChange={(e) => e.target.files && setPImage(e.target.files[0])} />
+                                        )}
+                                    </div>
+
+                                    {(pImage || pImageUrl) && (
+                                        <div className="flex space-x-2 mt-4">
+                                            <label className={`px-4 py-2 ${themeClasses.lightBg} border border-transparent ${themeClasses.primaryText} text-xs font-bold rounded-xl cursor-pointer hover:opacity-80 transition-opacity flex items-center shadow-sm`}>
+                                                <Upload className="w-3.5 h-3.5 mr-1.5" /> {t.replace || "Replace"}
+                                                <input type="file" className="hidden" accept="image/*" onChange={(e) => e.target.files && setPImage(e.target.files[0])} />
+                                            </label>
+                                            <button type="button" onClick={handleRemoveImage} className="px-4 py-2 bg-red-50 text-red-600 text-xs font-bold rounded-xl hover:bg-red-100 transition-colors flex items-center shadow-sm">
+                                                <Trash2 className="w-3.5 h-3.5 mr-1.5" /> {t.remove || "Remove"}
+                                            </button>
+                                        </div>
                                     )}
                                 </div>
 
-                                {(pImage || pImageUrl) && (
-                                    <div className="flex space-x-2 mt-4">
-                                        <label className={`px-4 py-2 ${themeClasses.lightBg} border border-transparent ${themeClasses.primaryText} text-xs font-bold rounded-xl cursor-pointer hover:opacity-80 transition-opacity flex items-center shadow-sm`}>
-                                            <Upload className="w-3.5 h-3.5 mr-1.5" /> {t.replace || "Replace"}
-                                            <input type="file" className="hidden" accept="image/*" onChange={(e) => e.target.files && setPImage(e.target.files[0])} />
-                                        </label>
-                                        <button type="button" onClick={handleRemoveImage} className="px-4 py-2 bg-red-50 text-red-600 text-xs font-bold rounded-xl hover:bg-red-100 transition-colors flex items-center shadow-sm">
-                                            <Trash2 className="w-3.5 h-3.5 mr-1.5" /> {t.remove || "Remove"}
-                                        </button>
+                                <div className="space-y-5">
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">{t.productName || "Product Name"} <span className="text-red-500">*</span></label>
+                                        <input type="text" required value={pName} onChange={e => setPName(e.target.value)} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-slate-300 focus:ring-4 focus:ring-slate-50 outline-none transition-all text-slate-800 font-medium" placeholder={t.productNamePlaceholder || "e.g. Matador Ballpen"} />
                                     </div>
-                                )}
-                            </div>
 
-                            <div className="space-y-5">
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">{t.productName || "Product Name"} <span className="text-red-500">*</span></label>
-                                    <input type="text" required value={pName} onChange={e => setPName(e.target.value)} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-slate-300 focus:ring-4 focus:ring-slate-50 outline-none transition-all text-slate-800 font-medium" placeholder={t.productNamePlaceholder || "e.g. Matador Ballpen"} />
-                                </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">{t.brandCompany || "Brand / Company"}</label>
+                                        <input type="text" value={pBrand} onChange={e => setPBrand(e.target.value)} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-slate-300 focus:ring-4 focus:ring-slate-50 outline-none transition-all text-slate-800 font-medium" placeholder={t.brandPlaceholder || "e.g. Matador, Pran"} />
+                                    </div>
 
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">{t.brandCompany || "Brand / Company"}</label>
-                                    <input type="text" value={pBrand} onChange={e => setPBrand(e.target.value)} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-slate-300 focus:ring-4 focus:ring-slate-50 outline-none transition-all text-slate-800 font-medium" placeholder={t.brandPlaceholder || "e.g. Matador, Pran"} />
-                                </div>
+                                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                        <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-3 flex items-center">{t.pricingInfo || "Pricing Info"}</h4>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-xs font-bold text-slate-500 mb-1.5">{t.buyPrice || "Buy Price"} <span className="text-red-500">*</span></label>
+                                                <input type="number" required step="any" value={pBuyPrice} onChange={e => setPBuyPrice(e.target.value)} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-slate-300 focus:ring-4 focus:ring-slate-50 outline-none transition-all font-medium text-slate-800" placeholder="0.00" />
+                                            </div>
+                                            <div>
+                                                <label className={`block text-xs font-bold ${themeClasses.primaryText} mb-1.5`}>{t.sellPrice || "Sell Price"} <span className="text-red-500">*</span></label>
+                                                <input type="number" required step="any" value={pSellPrice} onChange={e => setPSellPrice(e.target.value)} className={`w-full px-4 py-3 ${themeClasses.lightBg} border-2 border-transparent rounded-xl focus:border-slate-300 focus:ring-4 focus:ring-slate-50 outline-none transition-all font-bold ${themeClasses.primaryText}`} placeholder="0.00" />
+                                            </div>
+                                        </div>
+                                    </div>
 
-                                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                                    <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-3 flex items-center">{t.pricingInfo || "Pricing Info"}</h4>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
-                                            <label className="block text-xs font-bold text-slate-500 mb-1.5">{t.buyPrice || "Buy Price"} <span className="text-red-500">*</span></label>
-                                            <input type="number" required step="any" value={pBuyPrice} onChange={e => setPBuyPrice(e.target.value)} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-slate-300 focus:ring-4 focus:ring-slate-50 outline-none transition-all font-medium text-slate-800" placeholder="0.00" />
+                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">{t.openingQuantity || "Opening Quantity"} <span className="text-red-500">*</span></label>
+                                            <input type="number" required step="any" value={pStock} onChange={e => setPStock(e.target.value)} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-slate-300 focus:ring-4 focus:ring-slate-50 outline-none transition-all font-medium text-slate-800" placeholder="0" />
                                         </div>
                                         <div>
-                                            <label className={`block text-xs font-bold ${themeClasses.primaryText} mb-1.5`}>{t.sellPrice || "Sell Price"} <span className="text-red-500">*</span></label>
-                                            <input type="number" required step="any" value={pSellPrice} onChange={e => setPSellPrice(e.target.value)} className={`w-full px-4 py-3 ${themeClasses.lightBg} border-2 border-transparent rounded-xl focus:border-slate-300 focus:ring-4 focus:ring-slate-50 outline-none transition-all font-bold ${themeClasses.primaryText}`} placeholder="0.00" />
+                                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">{t.unit || "Unit"}</label>
+                                            <input type="text" value={pUnit} onChange={e => setPUnit(e.target.value)} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-slate-300 focus:ring-4 focus:ring-slate-50 outline-none transition-all font-medium text-slate-800" placeholder={t.unitPlaceholder || "pcs, kg, liter"} />
                                         </div>
                                     </div>
-                                </div>
 
-                                {/* Opening Quantity Box */}
-                                <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">{t.openingQuantity || "Opening Quantity"} <span className="text-red-500">*</span></label>
-                                        <input type="number" required step="any" value={pStock} onChange={e => setPStock(e.target.value)} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-slate-300 focus:ring-4 focus:ring-slate-50 outline-none transition-all font-medium text-slate-800" placeholder="0" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">{t.unit || "Unit"}</label>
-                                        <input type="text" value={pUnit} onChange={e => setPUnit(e.target.value)} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-slate-300 focus:ring-4 focus:ring-slate-50 outline-none transition-all font-medium text-slate-800" placeholder={t.unitPlaceholder || "pcs, kg, liter"} />
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">{t.barcodeSku || "Barcode / SKU"}</label>
-                                    <div className="flex space-x-2">
-                                        <input type="text" value={pBarcode} onChange={e => setPBarcode(e.target.value)} className="flex-1 px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-slate-300 focus:ring-4 focus:ring-slate-50 outline-none transition-all font-mono font-bold text-slate-700 tracking-wider" placeholder={t.barcodePlaceholder || "Scan or type"} />
-                                        <button type="button" onClick={() => startScanner('input')} className={`px-4 ${themeClasses.primaryBg} text-white rounded-xl hover:opacity-90 active:scale-95 transition-all shadow-sm flex justify-center items-center`}>
-                                            <Barcode className="h-6 w-6" />
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div className="pt-6 border-t border-slate-100">
-                                    <h4 className={`text-xs font-extrabold ${themeClasses.primaryText} uppercase tracking-wider mb-4 flex items-center`}>{t.advancedSettings || "Advanced Settings"}</h4>
-                                    
-                                    <div className="space-y-3">
-                                        <div className={`border rounded-2xl p-4 transition-colors ${isWholesale ? `${themeClasses.lightBg} border-transparent` : 'bg-white border-slate-200'}`}>
-                                            <div className="flex justify-between items-center">
-                                                <span className="text-sm font-bold text-slate-700 flex items-center"><Layers className={`h-5 w-5 mr-3 ${themeClasses.primaryText}`} /> {t.wholesalePrice || "Wholesale Price"}</span>
-                                                <label className="relative inline-flex items-center cursor-pointer">
-                                                    <input type="checkbox" className="sr-only peer" checked={isWholesale} onChange={e => setIsWholesale(e.target.checked)} />
-                                                    <div className={`w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:${themeClasses.primaryBg.split(' ')[0]} shadow-inner`}></div>
-                                                </label>
-                                            </div>
-                                            {isWholesale && (
-                                                <input type="number" step="any" value={pWholesalePrice} onChange={e => setPWholesalePrice(e.target.value)} className={`mt-4 w-full px-4 py-3 bg-white border border-slate-200 rounded-xl font-medium outline-none focus:border-slate-300 focus:ring-4 focus:ring-slate-50`} placeholder={t.enterWholesalePrice || "Enter Wholesale Price"} />
-                                            )}
+                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">{t.barcodeSku || "Barcode / SKU"}</label>
+                                        <div className="flex space-x-2">
+                                            <input type="text" value={pBarcode} onChange={e => setPBarcode(e.target.value)} className="flex-1 px-4 py-3 bg-white border border-slate-200 rounded-xl focus:border-slate-300 focus:ring-4 focus:ring-slate-50 outline-none transition-all font-mono font-bold text-slate-700 tracking-wider" placeholder={t.barcodePlaceholder || "Scan or type"} />
+                                            <button type="button" onClick={() => startScanner('input')} className={`px-4 ${themeClasses.primaryBg} text-white rounded-xl hover:opacity-90 active:scale-95 transition-all shadow-sm flex justify-center items-center`}>
+                                                <Barcode className="h-6 w-6" />
+                                            </button>
                                         </div>
+                                    </div>
 
-                                        <div className={`border rounded-2xl p-4 transition-colors ${hasAlert ? 'bg-orange-50 border-orange-200' : 'bg-white border-slate-200'}`}>
-                                            <div className="flex justify-between items-center">
-                                                <span className="text-sm font-bold text-slate-700 flex items-center"><AlertTriangle className="h-5 w-5 mr-3 text-orange-500" /> {t.lowStockAlert || "Low Stock Alert"}</span>
-                                                <label className="relative inline-flex items-center cursor-pointer">
-                                                    <input type="checkbox" className="sr-only peer" checked={hasAlert} onChange={e => setHasAlert(e.target.checked)} />
-                                                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500 shadow-inner"></div>
-                                                </label>
+                                    <div className="pt-6 border-t border-slate-100">
+                                        <h4 className={`text-xs font-extrabold ${themeClasses.primaryText} uppercase tracking-wider mb-4 flex items-center`}>{t.advancedSettings || "Advanced Settings"}</h4>
+                                        
+                                        <div className="space-y-3">
+                                            <div className={`border rounded-2xl p-4 transition-colors ${isWholesale ? `${themeClasses.lightBg} border-transparent` : 'bg-white border-slate-200'}`}>
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-sm font-bold text-slate-700 flex items-center"><Layers className={`h-5 w-5 mr-3 ${themeClasses.primaryText}`} /> {t.wholesalePrice || "Wholesale Price"}</span>
+                                                    <label className="relative inline-flex items-center cursor-pointer">
+                                                        <input type="checkbox" className="sr-only peer" checked={isWholesale} onChange={e => setIsWholesale(e.target.checked)} />
+                                                        <div className={`w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:${themeClasses.primaryBg.split(' ')[0]} shadow-inner`}></div>
+                                                    </label>
+                                                </div>
+                                                {isWholesale && (
+                                                    <input type="number" step="any" value={pWholesalePrice} onChange={e => setPWholesalePrice(e.target.value)} className={`mt-4 w-full px-4 py-3 bg-white border border-slate-200 rounded-xl font-medium outline-none focus:border-slate-300 focus:ring-4 focus:ring-slate-50`} placeholder={t.enterWholesalePrice || "Enter Wholesale Price"} />
+                                                )}
                                             </div>
-                                            {hasAlert && (
-                                                <input type="number" step="any" value={pAlertQty} onChange={e => setPAlertQty(e.target.value)} className="mt-4 w-full px-4 py-3 bg-white border border-orange-200 rounded-xl font-medium outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-50" placeholder={t.minQtyDefault || "Min Qty (Default 5)"} />
-                                            )}
-                                        </div>
 
-                                        <div className={`border rounded-2xl p-4 transition-colors ${hasExpiry ? 'bg-red-50 border-red-200' : 'bg-white border-slate-200'}`}>
-                                            <div className="flex justify-between items-center">
-                                                <span className="text-sm font-bold text-slate-700 flex items-center"><Calendar className="h-5 w-5 mr-3 text-red-500" /> {t.expireDate || "Expire Date"}</span>
-                                                <label className="relative inline-flex items-center cursor-pointer">
-                                                    <input type="checkbox" className="sr-only peer" checked={hasExpiry} onChange={e => setHasExpiry(e.target.checked)} />
-                                                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-500 shadow-inner"></div>
-                                                </label>
+                                            <div className={`border rounded-2xl p-4 transition-colors ${hasAlert ? 'bg-orange-50 border-orange-200' : 'bg-white border-slate-200'}`}>
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-sm font-bold text-slate-700 flex items-center"><AlertTriangle className="h-5 w-5 mr-3 text-orange-500" /> {t.lowStockAlert || "Low Stock Alert"}</span>
+                                                    <label className="relative inline-flex items-center cursor-pointer">
+                                                        <input type="checkbox" className="sr-only peer" checked={hasAlert} onChange={e => setHasAlert(e.target.checked)} />
+                                                        <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500 shadow-inner"></div>
+                                                    </label>
+                                                </div>
+                                                {hasAlert && (
+                                                    <input type="number" step="any" value={pAlertQty} onChange={e => setPAlertQty(e.target.value)} className="mt-4 w-full px-4 py-3 bg-white border border-orange-200 rounded-xl font-medium outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-50" placeholder={t.minQtyDefault || "Min Qty (Default 5)"} />
+                                                )}
                                             </div>
-                                            {hasExpiry && (
-                                                <input type="date" value={pExpireDate} onChange={e => setPExpireDate(e.target.value)} className="mt-4 w-full px-4 py-3 bg-white border border-red-200 rounded-xl font-medium outline-none focus:border-red-500 focus:ring-4 focus:ring-red-50" />
-                                            )}
+
+                                            <div className={`border rounded-2xl p-4 transition-colors ${hasExpiry ? 'bg-red-50 border-red-200' : 'bg-white border-slate-200'}`}>
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-sm font-bold text-slate-700 flex items-center"><Calendar className="h-5 w-5 mr-3 text-red-500" /> {t.expireDate || "Expire Date"}</span>
+                                                    <label className="relative inline-flex items-center cursor-pointer">
+                                                        <input type="checkbox" className="sr-only peer" checked={hasExpiry} onChange={e => setHasExpiry(e.target.checked)} />
+                                                        <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-500 shadow-inner"></div>
+                                                    </label>
+                                                </div>
+                                                {hasExpiry && (
+                                                    <input type="date" value={pExpireDate} onChange={e => setPExpireDate(e.target.value)} className="mt-4 w-full px-4 py-3 bg-white border border-red-200 rounded-xl font-medium outline-none focus:border-red-500 focus:ring-4 focus:ring-red-50" />
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            <div className="mt-8 pt-5 border-t border-slate-100 flex gap-3">
-                                <button type="button" onClick={() => setShowProductModal(false)} className="flex-1 py-3.5 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition-colors">
-                                    {t.cancel || "Cancel"}
-                                </button>
-                                <button type="submit" disabled={isSaving || !pName.trim()} className={`flex-1 py-3.5 rounded-xl ${themeClasses.primaryBg} text-white font-bold shadow-md hover:shadow-lg transition-all active:scale-95 disabled:opacity-70 flex justify-center items-center`}>
-                                    {isSaving ? <Loader2 className="h-5 w-5 animate-spin" /> : (
-                                        <><CheckCircle2 className="h-5 w-5 mr-2" /> {t.saveProduct || "Save Product"}</>
-                                    )}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
-
-            {/* --- Quick Stock Modal --- */}
-            {showStockModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-[320px] p-8 text-center animate-in zoom-in-95 duration-200">
-                        <div className={`w-16 h-16 ${themeClasses.lightBg} ${themeClasses.primaryText} rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-inner`}>
-                            <Layers className="h-8 w-8" />
-                        </div>
-                        <h3 className="text-xl font-extrabold text-slate-900 mb-1">{t.updateStock || "Update Stock"}</h3>
-                        <p className="text-sm font-medium text-slate-500 mb-8 truncate px-2 bg-slate-50 rounded-lg py-1 inline-block">{stockUpdateName}</p>
-                        
-                        <div className="flex items-center justify-center space-x-5 mb-8">
-                            <button onClick={() => setNewStockInput(p => p - 1)} className="w-12 h-12 rounded-full bg-red-50 text-red-600 flex items-center justify-center hover:bg-red-100 active:scale-90 transition-all shadow-sm">
-                                <Minus className="h-6 w-6" />
-                            </button>
-                            <input 
-                                type="number" 
-                                value={newStockInput} 
-                                onChange={(e) => setNewStockInput(Number(e.target.value))}
-                                className={`w-24 text-center text-4xl font-black text-slate-800 border-b-2 border-slate-200 focus:border-slate-400 outline-none bg-transparent pb-1`}
-                            />
-                            <button onClick={() => setNewStockInput(p => p + 1)} className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center hover:bg-emerald-100 active:scale-90 transition-all shadow-sm">
-                                <Plus className="h-6 w-6" />
-                            </button>
-                        </div>
-                        
-                        <div className="flex space-x-3">
-                            <button onClick={() => setShowStockModal(false)} className="flex-1 py-3.5 rounded-xl bg-slate-100 text-slate-700 font-bold hover:bg-slate-200 active:scale-95 transition-all">{t.cancel || "Cancel"}</button>
-                            <button onClick={handleQuickStock} className={`flex-1 py-3.5 rounded-xl ${themeClasses.primaryBg} text-white font-bold shadow-md hover:shadow-lg active:scale-95 transition-all`}>{t.update || "Update"}</button>
+                                <div className="mt-8 pt-5 border-t border-slate-100 flex gap-3">
+                                    <button type="button" onClick={() => setShowProductModal(false)} className="flex-1 py-3.5 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition-colors">
+                                        {t.cancel || "Cancel"}
+                                    </button>
+                                    <button type="submit" disabled={isSaving || !pName.trim()} className={`flex-1 py-3.5 rounded-xl ${themeClasses.primaryBg} text-white font-bold shadow-md hover:shadow-lg transition-all active:scale-95 disabled:opacity-70 flex justify-center items-center`}>
+                                        {isSaving ? <Loader2 className="h-5 w-5 animate-spin" /> : (
+                                            <><CheckCircle2 className="h-5 w-5 mr-2" /> {t.saveProduct || "Save Product"}</>
+                                        )}
+                                    </button>
+                                </div>
+                            </form>
                         </div>
                     </div>
-                </div>
-            )}
+                )}
 
-            {/* --- Scanner Modal --- */}
-            {showScannerModal && (
-                <div className="fixed inset-0 z-[60] bg-black flex flex-col items-center justify-center">
-                    <div id="reader" className={`w-full max-w-sm rounded-3xl overflow-hidden border-4 border-slate-500 shadow-[0_0_40px_rgba(255,255,255,0.2)]`}></div>
-                    <button onClick={stopScanner} className="mt-10 px-10 py-4 bg-white text-red-600 rounded-full font-bold shadow-xl active:scale-95 transition-transform text-lg flex items-center">
-                        <X className="h-6 w-6 mr-2" /> {t.closeCamera || "Close Camera"}
-                    </button>
+                {/* Stock Modal */}
+                {showStockModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+                        <div className="bg-white rounded-3xl shadow-2xl w-full max-w-[320px] p-8 text-center animate-in zoom-in-95 duration-200">
+                            <div className={`w-16 h-16 ${themeClasses.lightBg} ${themeClasses.primaryText} rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-inner`}>
+                                <Layers className="h-8 w-8" />
+                            </div>
+                            <h3 className="text-xl font-extrabold text-slate-900 mb-1">{t.updateStock || "Update Stock"}</h3>
+                            <p className="text-sm font-medium text-slate-500 mb-8 truncate px-2 bg-slate-50 rounded-lg py-1 inline-block">{stockUpdateName}</p>
+                            
+                            <div className="flex items-center justify-center space-x-5 mb-8">
+                                <button onClick={() => setNewStockInput(p => p - 1)} className="w-12 h-12 rounded-full bg-red-50 text-red-600 flex items-center justify-center hover:bg-red-100 active:scale-90 transition-all shadow-sm">
+                                    <Minus className="h-6 w-6" />
+                                </button>
+                                <input 
+                                    type="number" 
+                                    value={newStockInput} 
+                                    onChange={(e) => setNewStockInput(Number(e.target.value))}
+                                    className={`w-24 text-center text-4xl font-black text-slate-800 border-b-2 border-slate-200 focus:border-slate-400 outline-none bg-transparent pb-1`}
+                                />
+                                <button onClick={() => setNewStockInput(p => p + 1)} className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center hover:bg-emerald-100 active:scale-90 transition-all shadow-sm">
+                                    <Plus className="h-6 w-6" />
+                                </button>
+                            </div>
+                            
+                            <div className="flex space-x-3">
+                                <button onClick={() => setShowStockModal(false)} className="flex-1 py-3.5 rounded-xl bg-slate-100 text-slate-700 font-bold hover:bg-slate-200 active:scale-95 transition-all">{t.cancel || "Cancel"}</button>
+                                <button onClick={handleQuickStock} className={`flex-1 py-3.5 rounded-xl ${themeClasses.primaryBg} text-white font-bold shadow-md hover:shadow-lg active:scale-95 transition-all`}>{t.update || "Update"}</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Scanner Modal */}
+                {showScannerModal && (
+                    <div className="fixed inset-0 z-[60] bg-black flex flex-col items-center justify-center">
+                        <div id="reader" className={`w-full max-w-sm rounded-3xl overflow-hidden border-4 border-slate-500 shadow-[0_0_40px_rgba(255,255,255,0.2)]`}></div>
+                        <button onClick={stopScanner} className="mt-10 px-10 py-4 bg-white text-red-600 rounded-full font-bold shadow-xl active:scale-95 transition-transform text-lg flex items-center">
+                            <X className="h-6 w-6 mr-2" /> {t.closeCamera || "Close Camera"}
+                        </button>
+                    </div>
+                )}
+            </div>
+
+            {/* =========================================
+                PRINT ONLY UI (VISIBLE ONLY WHEN PRINTING)
+                ========================================= */}
+            <div className="hidden print-only w-full bg-white text-black p-4">
+                <div className="print-header">
+                    <h2>{shop?.name}</h2>
+                    <p>{t.inventoryReport || "Inventory Report"} | Date: {new Date().toLocaleDateString()}</p>
                 </div>
-            )}
-        </div>
+                
+                <div className="print-summary">
+                    <div>Total Closing Stock : <span style={{color: '#9333ea'}}>{formatCurrency(totalValue)}</span></div>
+                    <div>Total Qty : <span style={{color: '#2563eb'}}>{totalQty.toFixed(2)}</span></div>
+                </div>
+
+                <table className="print-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>{t.product || "Product"}</th>
+                            <th>{t.stock || "Stock Qty"}</th>
+                            <th>{t.buyPrice || "Buy Price"}</th>
+                            <th>{t.sellPrice || "Sell Price"}</th>
+                            <th>{t.totalValue || "Total Value"}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {filteredProducts.map((p, index) => {
+                            const val = p.stock * p.sell_price;
+                            return (
+                                <tr key={p.$id}>
+                                    <td style={{textAlign: 'center', color: '#666'}}>{index + 1}</td>
+                                    <td>
+                                        <span style={{fontWeight: 'bold', color: '#1f2937'}}>{p.name}</span>
+                                        {p.brand && <div style={{fontSize: '10px', color: '#6b7280'}}>{p.brand}</div>}
+                                    </td>
+                                    <td style={{fontWeight: '500'}}>{p.stock} <span style={{fontSize: '10px', color: '#6b7280'}}>{p.unit || ''}</span></td>
+                                    <td>{p.buy_price.toFixed(2)}</td>
+                                    <td>{p.sell_price.toFixed(2)}</td>
+                                    <td style={{fontWeight: 'bold'}}>{val.toFixed(2)}</td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
+        </React.Fragment>
     );
 }

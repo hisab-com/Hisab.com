@@ -692,27 +692,25 @@ export default function ProductList({ onBack, shop }: any) {
 
             {/* --- PDF Preview Modal --- */}
             {showPdfPreview && (
-                <div className="fixed inset-0 z-50 flex flex-col bg-slate-900/95 backdrop-blur-sm animate-in fade-in">
-                    <div className="flex justify-between items-center p-4 bg-white/10 backdrop-blur-md border-b border-white/10">
+                <div className="fixed inset-0 z-[70] flex flex-col bg-slate-900/95 backdrop-blur-md animate-in fade-in">
+                    <div className="flex justify-between items-center p-4 bg-white/10 border-b border-white/10">
                         <h3 className="font-bold text-lg text-white">{t.pdfPreview || "PDF Preview"}</h3>
                         <div className="flex space-x-3">
-                            <a href={pdfUrl} download={`${shop.name}_Inventory.pdf`} className={`px-5 py-2.5 rounded-xl ${themeClasses.primaryBg} text-white font-bold flex items-center shadow-lg active:scale-95 transition-all`}>
-                                {t.downloadPdf || "Download PDF"}
+                            {/* মোবাইলে সরাসরি ডাউনলোড করার জন্য বাটন */}
+                            <a href={pdfUrl} download={`${shop.name}_Inventory.pdf`} className={`px-5 py-2 rounded-xl ${themeClasses.primaryBg} text-white font-bold flex items-center shadow-lg active:scale-95 transition-all`}>
+                                {t.downloadPdf || "Download"}
                             </a>
-                            <button onClick={() => setShowPdfPreview(false)} className="p-2.5 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-colors">
+                            <button onClick={() => setShowPdfPreview(false)} className="p-2 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-colors">
                                 <X className="h-5 w-5" />
                             </button>
                         </div>
                     </div>
-                    {/* Fallback text if iframe doesn't load on mobile browsers */}
-                    <div className="bg-slate-800 text-center text-slate-300 py-2 text-sm">
-                        {t.pdfPreviewHint || "If preview is not loading properly, please click Download PDF."}
-                    </div>
-                    <div className="flex-1 p-2 sm:p-6 overflow-hidden">
-                        <iframe src={`${pdfUrl}#toolbar=0`} className="w-full h-full rounded-2xl bg-white shadow-2xl" title="PDF Preview"></iframe>
+                    
+                    <div className="flex-1 w-full h-full p-2 sm:p-6 overflow-hidden bg-slate-800 flex justify-center items-center">
+                        {/* Object এবং Embed ট্যাগ ব্যবহার করা হয়েছে ল্যাপটপ ও মোবাইলের জন্য */}
+                        <object data={pdfUrl} type="application/pdf" className="w-full h-full max-w-5xl bg-white rounded-xl shadow-2xl">
+                            <embed src={pdfUrl} type="application/pdf" className="w-full h-full rounded-xl" />
+                        </object>
                     </div>
                 </div>
             )}
-        </div>
-    );
-}

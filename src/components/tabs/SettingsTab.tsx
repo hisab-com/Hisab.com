@@ -1,23 +1,24 @@
 import React, { useState } from 'react';
 import { useAppConfig } from '../../context/AppConfigContext';
-import { Store, User, Globe, Palette, LogOut, Shield, ChevronRight, Plus, Check, DollarSign, Hash, X, Upload, Loader2 } from 'lucide-react';
+import { Store, User, Globe, Palette, LogOut, Shield, ChevronRight, Plus, Check, DollarSign, Hash, X, Upload, Loader2, MapPin, Cloud, Tag, Lock, Mail, Phone, Camera } from 'lucide-react';
 import { databases, DB_ID, SHOPS_COLLECTION, account } from '../../lib/appwrite';
-import { uploadToCloudinary, DEFAULT_CLOUDINARY } from '../../utils/cloudinary';
+import { uploadToCloudinary } from '../../utils/cloudinary';
 
 export default function SettingsTab({ 
     user, shops, currentShop, setCurrentShop, setShowCreateShop, setShowAccessModal, logout 
 }: any) {
     const { t, themeClasses, language, setLanguage, theme, setTheme, currency, setCurrency, decimalPoint, setDecimalPoint } = useAppConfig();
 
+    // Shop Profile State
     const [showShopProfile, setShowShopProfile] = useState(false);
     const [editShopName, setEditShopName] = useState('');
     const [editShopAddress, setEditShopAddress] = useState('');
     const [editCloudName, setEditCloudName] = useState('');
-    const [editApiKey, setEditApiKey] = useState('');
-    const [editApiSecret, setEditApiSecret] = useState('');
+    const [editUploadPreset, setEditUploadPreset] = useState('');
     const [editShopLogo, setEditShopLogo] = useState<File | null>(null);
     const [isUpdatingShop, setIsUpdatingShop] = useState(false);
 
+    // User Profile State
     const [showUserProfile, setShowUserProfile] = useState(false);
     const [editUserName, setEditUserName] = useState('');
     const [editUserEmail, setEditUserEmail] = useState('');
@@ -33,12 +34,10 @@ export default function SettingsTab({
         try {
             const parsed = JSON.parse(currentShop?.uploadme_api_key || '{}');
             setEditCloudName(parsed.cloudName || '');
-            setEditApiKey(parsed.apiKey || '');
-            setEditApiSecret(parsed.apiSecret || '');
+            setEditUploadPreset(parsed.uploadPreset || '');
         } catch {
             setEditCloudName('');
-            setEditApiKey('');
-            setEditApiSecret('');
+            setEditUploadPreset('');
         }
         setEditShopLogo(null);
         setShowShopProfile(true);
@@ -79,12 +78,8 @@ export default function SettingsTab({
 
             if (editUserAvatar) {
                 try {
-                    const uploadRes = await uploadToCloudinary(
-                        editUserAvatar, 
-                        DEFAULT_CLOUDINARY.cloudName, 
-                        DEFAULT_CLOUDINARY.apiKey, 
-                        DEFAULT_CLOUDINARY.apiSecret
-                    );
+                    // Uses default cloudinary settings defined in cloudinary.ts
+                    const uploadRes = await uploadToCloudinary(editUserAvatar);
                     avatarUrl = uploadRes.url;
                 } catch (uploadError: any) {
                     console.error('Failed to upload avatar:', uploadError);
@@ -119,18 +114,13 @@ export default function SettingsTab({
             let logoUrl = currentShop.logo_url;
             const shopApiConfig = JSON.stringify({
                 cloudName: editCloudName,
-                apiKey: editApiKey,
-                apiSecret: editApiSecret
+                uploadPreset: editUploadPreset
             });
 
             if (editShopLogo) {
                 try {
-                    const uploadRes = await uploadToCloudinary(
-                        editShopLogo, 
-                        DEFAULT_CLOUDINARY.cloudName, 
-                        DEFAULT_CLOUDINARY.apiKey, 
-                        DEFAULT_CLOUDINARY.apiSecret
-                    );
+                    // Uses default cloudinary settings defined in cloudinary.ts
+                    const uploadRes = await uploadToCloudinary(editShopLogo);
                     logoUrl = uploadRes.url;
                 } catch (uploadError: any) {
                     console.error('Failed to upload logo:', uploadError);
@@ -157,7 +147,6 @@ export default function SettingsTab({
         }
     };
 
-    // Determine user's role in the current shop
     let userRole = 'Owner';
     if (currentShop && currentShop.owner_id !== user?.$id) {
         userRole = 'Staff';
@@ -174,28 +163,35 @@ export default function SettingsTab({
 
     return (
         <div className="pb-24 pt-4 px-4 max-w-md mx-auto sm:max-w-3xl space-y-6">
-            <h2 className="text-xl font-bold text-slate-800 mb-2">{t.settings}</h2>
+            <div className="flex items-center justify-between mb-2">
+                <h2 className="text-xl font-extrabold text-slate-800">{t.settings}</h2>
+            </div>
 
-            {/* Profile Section */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 flex items-center">
-                {user?.prefs?.avatar_url ? (
-                    <img src={user.prefs.avatar_url} alt="User Avatar" className="h-14 w-14 rounded-full object-cover mr-4 border border-slate-200" />
-                ) : (
-                    <div className={`h-14 w-14 rounded-full ${themeClasses.lightBg} ${themeClasses.primaryText} flex items-center justify-center text-xl font-bold mr-4`}>
-                        {user?.name?.charAt(0) || 'U'}
-                    </div>
-                )}
-                <div>
-                    <h3 className="font-bold text-lg text-slate-800">{user?.name}</h3>
-                    <p className="text-sm text-slate-500">{user?.prefs?.mobile || user?.email}</p>
+            {/* Profile Header Card */}
+            <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-3xl shadow-lg p-6 flex items-center relative overflow-hidden">
+                <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-white opacity-5 rounded-full blur-2xl"></div>
+                <div className="relative">
+                    {user?.prefs?.avatar_url ? (
+                        <img src={user.prefs.avatar_url} alt="User Avatar" className="h-16 w-16 rounded-full object-cover mr-4 ring-4 ring-white/10" />
+                    ) : (
+                        <div className={`h-16 w-16 rounded-full bg-white/10 text-white flex items-center justify-center text-2xl font-bold mr-4 ring-4 ring-white/5`}>
+                            {user?.name?.charAt(0) || 'U'}
+                        </div>
+                    )}
+                </div>
+                <div className="relative text-white">
+                    <h3 className="font-bold text-xl">{user?.name}</h3>
+                    <p className="text-sm text-slate-300 flex items-center mt-1">
+                        <Phone className="h-3 w-3 mr-1" /> {user?.prefs?.mobile || user?.email}
+                    </p>
                 </div>
             </div>
 
             {/* Shop Selection */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-                <div className="px-4 py-3 border-b border-slate-50 bg-slate-50 flex justify-between items-center">
-                    <span className="font-bold text-slate-700 text-sm">{t.shopSelect}</span>
-                    <button onClick={() => setShowCreateShop(true)} className={`${themeClasses.primaryText} flex items-center text-sm font-bold`}>
+            <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+                <div className="px-5 py-4 border-b border-slate-50 bg-slate-50 flex justify-between items-center">
+                    <span className="font-bold text-slate-700 text-sm uppercase tracking-wider">{t.shopSelect}</span>
+                    <button onClick={() => setShowCreateShop(true)} className={`${themeClasses.primaryText} flex items-center text-sm font-bold bg-white px-3 py-1.5 rounded-full shadow-sm border border-slate-100 active:scale-95 transition-transform`}>
                         <Plus className="h-4 w-4 mr-1" /> {t.createShop}
                     </button>
                 </div>
@@ -204,74 +200,90 @@ export default function SettingsTab({
                         <button 
                             key={shop.$id} 
                             onClick={() => setCurrentShop(shop)}
-                            className="w-full flex items-center justify-between p-4 hover:bg-slate-50 transition-colors"
+                            className="w-full flex items-center justify-between p-5 hover:bg-slate-50 transition-colors group"
                         >
                             <div className="flex items-center">
                                 {shop.logo_url ? (
-                                    <img src={shop.logo_url} alt="Shop Logo" className="h-6 w-6 rounded-full object-cover mr-3 border border-slate-200" />
+                                    <img src={shop.logo_url} alt="Shop Logo" className="h-10 w-10 rounded-xl object-cover mr-4 border border-slate-200 shadow-sm" />
                                 ) : (
-                                    <Store className={`h-5 w-5 mr-3 ${currentShop?.$id === shop.$id ? themeClasses.primaryText : 'text-slate-400'}`} />
+                                    <div className={`h-10 w-10 rounded-xl flex items-center justify-center mr-4 shadow-sm ${currentShop?.$id === shop.$id ? themeClasses.primaryBg + ' text-white' : 'bg-slate-100 text-slate-400'}`}>
+                                        <Store className="h-5 w-5" />
+                                    </div>
                                 )}
-                                <span className={`font-medium ${currentShop?.$id === shop.$id ? 'text-slate-900' : 'text-slate-600'}`}>{shop.name}</span>
-                                {shop.owner_id !== user?.$id && <span className="ml-2 text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Staff</span>}
+                                <div className="text-left">
+                                    <span className={`block font-bold text-base ${currentShop?.$id === shop.$id ? 'text-slate-900' : 'text-slate-600'}`}>{shop.name}</span>
+                                    {shop.owner_id !== user?.$id && <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-md font-semibold mt-1 inline-block">Staff</span>}
+                                </div>
                             </div>
-                            {currentShop?.$id === shop.$id && <Check className={`h-5 w-5 ${themeClasses.primaryText}`} />}
+                            {currentShop?.$id === shop.$id ? (
+                                <div className={`h-6 w-6 rounded-full ${themeClasses.lightBg} flex items-center justify-center`}>
+                                    <Check className={`h-4 w-4 ${themeClasses.primaryText}`} />
+                                </div>
+                            ) : (
+                                <ChevronRight className="h-5 w-5 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            )}
                         </button>
                     ))}
                 </div>
             </div>
 
             {/* Settings Options */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden divide-y divide-slate-50">
-                <button onClick={openShopProfile} className="w-full flex items-center justify-between p-4 hover:bg-slate-50 transition-colors">
+            <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden divide-y divide-slate-50">
+                <button onClick={openShopProfile} className="w-full flex items-center justify-between p-5 hover:bg-slate-50 transition-colors active:bg-slate-100">
                     <div className="flex items-center">
-                        <Store className="h-5 w-5 mr-3 text-slate-500" />
-                        <span className="font-medium text-slate-700">{t.shopProfile}</span>
+                        <div className="h-10 w-10 rounded-full bg-indigo-50 flex items-center justify-center mr-4 text-indigo-600">
+                            <Store className="h-5 w-5" />
+                        </div>
+                        <span className="font-semibold text-slate-700 text-base">{t.shopProfile}</span>
                     </div>
-                    <ChevronRight className="h-5 w-5 text-slate-300" />
+                    <ChevronRight className="h-5 w-5 text-slate-400" />
                 </button>
-                <button onClick={openUserProfile} className="w-full flex items-center justify-between p-4 hover:bg-slate-50 transition-colors">
+                <button onClick={openUserProfile} className="w-full flex items-center justify-between p-5 hover:bg-slate-50 transition-colors active:bg-slate-100">
                     <div className="flex items-center">
-                        <User className="h-5 w-5 mr-3 text-slate-500" />
-                        <span className="font-medium text-slate-700">{t.userProfile}</span>
+                        <div className="h-10 w-10 rounded-full bg-emerald-50 flex items-center justify-center mr-4 text-emerald-600">
+                            <User className="h-5 w-5" />
+                        </div>
+                        <span className="font-semibold text-slate-700 text-base">{t.userProfile}</span>
                     </div>
-                    <ChevronRight className="h-5 w-5 text-slate-300" />
+                    <ChevronRight className="h-5 w-5 text-slate-400" />
                 </button>
                 {userRole === 'Owner' && (
-                    <button onClick={() => setShowAccessModal(true)} className="w-full flex items-center justify-between p-4 hover:bg-slate-50 transition-colors">
+                    <button onClick={() => setShowAccessModal(true)} className="w-full flex items-center justify-between p-5 hover:bg-slate-50 transition-colors active:bg-slate-100">
                         <div className="flex items-center">
-                            <Shield className="h-5 w-5 mr-3 text-slate-500" />
-                            <span className="font-medium text-slate-700">{t.appAccess}</span>
+                            <div className="h-10 w-10 rounded-full bg-rose-50 flex items-center justify-center mr-4 text-rose-600">
+                                <Shield className="h-5 w-5" />
+                            </div>
+                            <span className="font-semibold text-slate-700 text-base">{t.appAccess}</span>
                         </div>
-                        <ChevronRight className="h-5 w-5 text-slate-300" />
+                        <ChevronRight className="h-5 w-5 text-slate-400" />
                     </button>
                 )}
             </div>
 
             {/* Preferences */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden divide-y divide-slate-50">
-                <div className="p-4 flex items-center justify-between">
+            <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden divide-y divide-slate-50">
+                <div className="p-5 flex items-center justify-between">
                     <div className="flex items-center">
                         <Globe className="h-5 w-5 mr-3 text-slate-500" />
                         <span className="font-medium text-slate-700">{t.language}</span>
                     </div>
-                    <div className="flex bg-slate-100 rounded-lg p-1">
-                        <button onClick={() => setLanguage('bn')} className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${language === 'bn' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500'}`}>বাংলা</button>
-                        <button onClick={() => setLanguage('en')} className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${language === 'en' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500'}`}>English</button>
+                    <div className="flex bg-slate-100 rounded-xl p-1 shadow-inner">
+                        <button onClick={() => setLanguage('bn')} className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-all ${language === 'bn' ? 'bg-white shadow text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}>বাংলা</button>
+                        <button onClick={() => setLanguage('en')} className={`px-4 py-1.5 text-sm font-bold rounded-lg transition-all ${language === 'en' ? 'bg-white shadow text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}>EN</button>
                     </div>
                 </div>
-                <div className="p-4 flex items-center justify-between">
+                <div className="p-5 flex items-center justify-between">
                     <div className="flex items-center">
                         <Palette className="h-5 w-5 mr-3 text-slate-500" />
                         <span className="font-medium text-slate-700">{t.theme}</span>
                     </div>
-                    <div className="flex space-x-2">
-                        <button onClick={() => setTheme('bkash')} className={`h-8 w-8 rounded-full bg-[#e2136e] flex items-center justify-center ${theme === 'bkash' ? 'ring-2 ring-offset-2 ring-[#e2136e]' : ''}`}></button>
-                        <button onClick={() => setTheme('emerald')} className={`h-8 w-8 rounded-full bg-emerald-600 flex items-center justify-center ${theme === 'emerald' ? 'ring-2 ring-offset-2 ring-emerald-600' : ''}`}></button>
-                        <button onClick={() => setTheme('blue')} className={`h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center ${theme === 'blue' ? 'ring-2 ring-offset-2 ring-blue-600' : ''}`}></button>
+                    <div className="flex space-x-3">
+                        <button onClick={() => setTheme('bkash')} className={`h-8 w-8 rounded-full bg-[#e2136e] shadow-sm transform transition-transform ${theme === 'bkash' ? 'scale-110 ring-4 ring-pink-100' : 'hover:scale-105'}`}></button>
+                        <button onClick={() => setTheme('emerald')} className={`h-8 w-8 rounded-full bg-emerald-600 shadow-sm transform transition-transform ${theme === 'emerald' ? 'scale-110 ring-4 ring-emerald-100' : 'hover:scale-105'}`}></button>
+                        <button onClick={() => setTheme('blue')} className={`h-8 w-8 rounded-full bg-blue-600 shadow-sm transform transition-transform ${theme === 'blue' ? 'scale-110 ring-4 ring-blue-100' : 'hover:scale-105'}`}></button>
                     </div>
                 </div>
-                <div className="p-4 flex items-center justify-between">
+                <div className="p-5 flex items-center justify-between">
                     <div className="flex items-center">
                         <DollarSign className="h-5 w-5 mr-3 text-slate-500" />
                         <span className="font-medium text-slate-700">{t.currency}</span>
@@ -279,7 +291,7 @@ export default function SettingsTab({
                     <select 
                         value={currency} 
                         onChange={(e) => setCurrency(e.target.value)}
-                        className="bg-slate-100 border-none text-sm font-medium rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-slate-200"
+                        className="bg-slate-100 border-none text-sm font-bold text-slate-700 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-slate-200 shadow-inner appearance-none cursor-pointer text-center"
                     >
                         <option value="৳">৳ (BDT)</option>
                         <option value="$">$ (USD)</option>
@@ -292,257 +304,294 @@ export default function SettingsTab({
                         <option value="S$">S$ (SGD)</option>
                     </select>
                 </div>
-                <div className="p-4 flex items-center justify-between">
+                <div className="p-5 flex items-center justify-between">
                     <div className="flex items-center">
                         <Hash className="h-5 w-5 mr-3 text-slate-500" />
                         <span className="font-medium text-slate-700">{t.decimalPoint}</span>
                     </div>
-                    <div className="flex bg-slate-100 rounded-lg p-1">
-                        <button onClick={() => setDecimalPoint(0)} className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${decimalPoint === 0 ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500'}`}>0</button>
-                        <button onClick={() => setDecimalPoint(1)} className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${decimalPoint === 1 ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500'}`}>.0</button>
-                        <button onClick={() => setDecimalPoint(2)} className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${decimalPoint === 2 ? 'bg-white shadow-sm text-slate-900' : 'text-slate-500'}`}>.00</button>
+                    <div className="flex bg-slate-100 rounded-xl p-1 shadow-inner">
+                        <button onClick={() => setDecimalPoint(0)} className={`px-3 py-1.5 text-sm font-bold rounded-lg transition-all ${decimalPoint === 0 ? 'bg-white shadow text-slate-900' : 'text-slate-500'}`}>0</button>
+                        <button onClick={() => setDecimalPoint(1)} className={`px-3 py-1.5 text-sm font-bold rounded-lg transition-all ${decimalPoint === 1 ? 'bg-white shadow text-slate-900' : 'text-slate-500'}`}>.0</button>
+                        <button onClick={() => setDecimalPoint(2)} className={`px-3 py-1.5 text-sm font-bold rounded-lg transition-all ${decimalPoint === 2 ? 'bg-white shadow text-slate-900' : 'text-slate-500'}`}>.00</button>
                     </div>
                 </div>
             </div>
 
             {/* Logout */}
-            <button onClick={logout} className="w-full flex items-center justify-center p-4 bg-red-50 text-red-600 rounded-2xl font-bold hover:bg-red-100 transition-colors">
+            <button onClick={logout} className="w-full flex items-center justify-center p-4 bg-white border border-red-100 text-red-600 rounded-3xl font-bold shadow-sm hover:bg-red-50 active:scale-95 transition-all">
                 <LogOut className="h-5 w-5 mr-2" /> {t.logout}
             </button>
 
-            {/* Shop Profile Modal */}
+            {/* --- Shop Profile Modal --- */}
             {showShopProfile && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
-                        <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
-                            <h3 className="text-lg font-bold text-slate-900">{t.shopProfile}</h3>
-                            <button onClick={() => setShowShopProfile(false)} className="text-slate-400 hover:text-slate-600">
+                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/60 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] animate-in slide-in-from-bottom-10 sm:slide-in-from-bottom-0 sm:zoom-in-95">
+                        <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0 z-10">
+                            <h3 className="text-xl font-extrabold text-slate-800 flex items-center">
+                                <Store className="h-6 w-6 mr-2 text-indigo-500" /> {t.shopProfile}
+                            </h3>
+                            <button onClick={() => setShowShopProfile(false)} className="h-8 w-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors">
                                 <X className="h-5 w-5" />
                             </button>
                         </div>
-                        <form onSubmit={handleUpdateShop} className="p-6 max-h-[80vh] overflow-y-auto">
-                            <div className="mb-4">
-                                <label className="block text-sm font-medium text-slate-700 mb-2">{t.shopName}</label>
-                                <input
-                                    type="text"
-                                    required
-                                    value={editShopName}
-                                    onChange={(e) => setEditShopName(e.target.value)}
-                                    className={`w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-opacity-50 outline-none transition-all focus:border-transparent ${themeClasses.primaryText.replace('text-', 'focus:ring-')}`}
-                                    placeholder="Shop Name"
-                                />
-                            </div>
-                            <div className="mb-4">
-                                <label className="block text-sm font-medium text-slate-700 mb-2">Shop Address</label>
-                                <input
-                                    type="text"
-                                    value={editShopAddress}
-                                    onChange={(e) => setEditShopAddress(e.target.value)}
-                                    className={`w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-opacity-50 outline-none transition-all focus:border-transparent ${themeClasses.primaryText.replace('text-', 'focus:ring-')}`}
-                                    placeholder="Shop Address"
-                                />
-                            </div>
-                            <div className="mb-4">
-                                <label className="block text-sm font-medium text-slate-700 mb-2">Cloudinary Cloud Name</label>
-                                <input
-                                    type="text"
-                                    value={editCloudName}
-                                    onChange={(e) => setEditCloudName(e.target.value)}
-                                    className={`w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-opacity-50 outline-none transition-all focus:border-transparent ${themeClasses.primaryText.replace('text-', 'focus:ring-')}`}
-                                    placeholder="e.g. dxxxxxxx"
-                                />
-                            </div>
-                            <div className="mb-4">
-                                <label className="block text-sm font-medium text-slate-700 mb-2">Cloudinary API Key</label>
-                                <input
-                                    type="text"
-                                    value={editApiKey}
-                                    onChange={(e) => setEditApiKey(e.target.value)}
-                                    className={`w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-opacity-50 outline-none transition-all focus:border-transparent ${themeClasses.primaryText.replace('text-', 'focus:ring-')}`}
-                                    placeholder="e.g. 123456789012345"
-                                />
-                            </div>
-                            <div className="mb-4">
-                                <label className="block text-sm font-medium text-slate-700 mb-2">Cloudinary API Secret</label>
-                                <input
-                                    type="password"
-                                    value={editApiSecret}
-                                    onChange={(e) => setEditApiSecret(e.target.value)}
-                                    className={`w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-opacity-50 outline-none transition-all focus:border-transparent ${themeClasses.primaryText.replace('text-', 'focus:ring-')}`}
-                                    placeholder="e.g. abcdefghijklmnopqrstuvwxyz"
-                                />
-                                <p className="text-xs text-slate-500 mt-1">এই API Key গুলো না দিলে আপনি প্রোডাক্টের ছবি আপলোড করতে পারবেন না।</p>
-                            </div>
-                            <div className="mb-6">
-                                <label className="block text-sm font-medium text-slate-700 mb-2">Shop Logo</label>
-                                {currentShop?.logo_url && !editShopLogo && (
-                                    <div className="mb-3">
-                                        <img src={currentShop.logo_url} alt="Shop Logo" className="h-16 w-16 object-cover rounded-xl border border-slate-200" />
-                                    </div>
-                                )}
-                                {editShopLogo && (
-                                    <div className="mb-3">
-                                        <img src={URL.createObjectURL(editShopLogo)} alt="Selected Logo" className="h-16 w-16 object-cover rounded-xl border border-emerald-500 ring-2 ring-emerald-200" />
-                                        <p className="text-sm text-emerald-600 mt-2 font-medium">Selected: {editShopLogo.name}</p>
-                                    </div>
-                                )}
-                                <div className="flex items-center justify-center w-full">
-                                    <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-slate-300 border-dashed rounded-xl cursor-pointer bg-slate-50 hover:bg-slate-100">
-                                        <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                                            <Upload className="w-8 h-8 mb-3 text-slate-400" />
-                                            <p className="mb-2 text-sm text-slate-500"><span className="font-semibold">Click to upload</span> or drag and drop</p>
-                                            <p className="text-xs text-slate-500">PNG, JPG up to 5MB</p>
+                        <form onSubmit={handleUpdateShop} className="p-6 overflow-y-auto custom-scrollbar">
+                            <div className="space-y-5">
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1.5">Shop Name</label>
+                                    <div className="relative">
+                                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                                            <Tag className="h-5 w-5 text-slate-400" />
                                         </div>
-                                        <input 
-                                            type="file" 
-                                            className="hidden" 
-                                            accept="image/*"
-                                            onChange={(e) => {
-                                                if (e.target.files && e.target.files[0]) {
-                                                    setEditShopLogo(e.target.files[0]);
-                                                }
-                                            }}
+                                        <input
+                                            type="text"
+                                            required
+                                            value={editShopName}
+                                            onChange={(e) => setEditShopName(e.target.value)}
+                                            className={`block w-full pl-11 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 focus:bg-white focus:ring-2 focus:ring-opacity-50 outline-none transition-all ${themeClasses.primaryText.replace('text-', 'focus:ring-')} focus:border-transparent font-medium`}
+                                            placeholder="e.g. Allahardan Stationery"
                                         />
-                                    </label>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1.5">Address</label>
+                                    <div className="relative">
+                                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                                            <MapPin className="h-5 w-5 text-slate-400" />
+                                        </div>
+                                        <input
+                                            type="text"
+                                            value={editShopAddress}
+                                            onChange={(e) => setEditShopAddress(e.target.value)}
+                                            className={`block w-full pl-11 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 focus:bg-white focus:ring-2 focus:ring-opacity-50 outline-none transition-all ${themeClasses.primaryText.replace('text-', 'focus:ring-')} focus:border-transparent font-medium`}
+                                            placeholder="e.g. Mohakhali, Dhaka"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Custom Cloudinary Storage Section */}
+                                <div className="mt-8 bg-indigo-50/50 border border-indigo-100 rounded-2xl p-5 relative">
+                                    <div className="absolute -top-3 left-4 bg-indigo-100 text-indigo-700 px-3 py-0.5 rounded-full text-xs font-bold flex items-center shadow-sm border border-indigo-200">
+                                        <Cloud className="h-3 w-3 mr-1" /> Custom Storage (Optional)
+                                    </div>
+                                    <p className="text-xs text-slate-500 mb-4 mt-2 leading-relaxed">
+                                        আপনার নিজের Cloudinary অ্যাকাউন্ট ব্যবহার করতে চাইলে নিচের তথ্যগুলো দিন। খালি রাখলে ডিফল্ট স্টোরেজ ব্যবহার হবে।
+                                    </p>
+                                    
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Cloud Name</label>
+                                            <input
+                                                type="text"
+                                                value={editCloudName}
+                                                onChange={(e) => setEditCloudName(e.target.value)}
+                                                className="block w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all font-mono text-sm"
+                                                placeholder="e.g. dxxxxxxxx"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Upload Preset (Unsigned)</label>
+                                            <input
+                                                type="text"
+                                                value={editUploadPreset}
+                                                onChange={(e) => setEditUploadPreset(e.target.value)}
+                                                className="block w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all font-mono text-sm"
+                                                placeholder="e.g. stashio_products"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="pt-2">
+                                    <label className="block text-sm font-bold text-slate-700 mb-3">Shop Logo</label>
+                                    <div className="flex items-center space-x-4">
+                                        <div className="flex-shrink-0">
+                                            {editShopLogo ? (
+                                                <img src={URL.createObjectURL(editShopLogo)} alt="Selected Logo" className="h-20 w-20 object-cover rounded-2xl border-2 border-emerald-500 shadow-md" />
+                                            ) : currentShop?.logo_url ? (
+                                                <img src={currentShop.logo_url} alt="Shop Logo" className="h-20 w-20 object-cover rounded-2xl border border-slate-200 shadow-sm" />
+                                            ) : (
+                                                <div className="h-20 w-20 rounded-2xl bg-slate-100 flex items-center justify-center border border-slate-200 border-dashed">
+                                                    <Store className="h-8 w-8 text-slate-300" />
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="flex-1">
+                                            <label className="flex items-center justify-center w-full px-4 py-3 border border-slate-300 rounded-xl cursor-pointer bg-white hover:bg-slate-50 transition-colors shadow-sm font-medium text-slate-700 text-sm">
+                                                <Camera className="w-5 h-5 mr-2 text-slate-500" /> 
+                                                <span>{editShopLogo ? 'Change Picture' : 'Upload Picture'}</span>
+                                                <input 
+                                                    type="file" 
+                                                    className="hidden" 
+                                                    accept="image/*"
+                                                    onChange={(e) => {
+                                                        if (e.target.files && e.target.files[0]) {
+                                                            setEditShopLogo(e.target.files[0]);
+                                                        }
+                                                    }}
+                                                />
+                                            </label>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                            <div className="flex space-x-3">
+                            <div className="mt-8 pt-5 border-t border-slate-100 grid grid-cols-2 gap-3">
                                 <button
                                     type="button"
                                     onClick={() => setShowShopProfile(false)}
-                                    className="flex-1 px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-medium hover:bg-slate-50 transition-colors"
+                                    className="px-4 py-3.5 rounded-2xl border border-slate-200 bg-slate-50 text-slate-700 font-bold hover:bg-slate-100 transition-colors"
                                 >
                                     {t.cancel}
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={isUpdatingShop || !editShopName.trim()}
-                                    className={`flex-1 px-4 py-2.5 rounded-xl ${themeClasses.primaryBg} text-white font-medium ${themeClasses.primaryHoverBg} disabled:opacity-70 transition-colors flex justify-center items-center`}
+                                    className={`px-4 py-3.5 rounded-2xl ${themeClasses.primaryBg} text-white font-bold shadow-md hover:shadow-lg disabled:opacity-70 active:scale-95 transition-all flex justify-center items-center`}
                                 >
-                                    {isUpdatingShop ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Update'}
+                                    {isUpdatingShop ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Save Changes'}
                                 </button>
                             </div>
                         </form>
                     </div>
                 </div>
             )}
-            {/* User Profile Modal */}
+
+            {/* --- User Profile Modal --- */}
             {showUserProfile && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
-                        <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
-                            <h3 className="text-lg font-bold text-slate-900">{t.userProfile}</h3>
-                            <button onClick={() => setShowUserProfile(false)} className="text-slate-400 hover:text-slate-600">
+                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/60 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] animate-in slide-in-from-bottom-10 sm:slide-in-from-bottom-0 sm:zoom-in-95">
+                        <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0 z-10">
+                            <h3 className="text-xl font-extrabold text-slate-800 flex items-center">
+                                <User className="h-6 w-6 mr-2 text-emerald-500" /> {t.userProfile}
+                            </h3>
+                            <button onClick={() => setShowUserProfile(false)} className="h-8 w-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors">
                                 <X className="h-5 w-5" />
                             </button>
                         </div>
-                        <form onSubmit={handleUpdateUser} className="p-6 max-h-[80vh] overflow-y-auto">
-                            <div className="mb-4">
-                                <label className="block text-sm font-medium text-slate-700 mb-2">Name</label>
-                                <input
-                                    type="text"
-                                    required
-                                    value={editUserName}
-                                    onChange={(e) => setEditUserName(e.target.value)}
-                                    className={`w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-opacity-50 outline-none transition-all focus:border-transparent ${themeClasses.primaryText.replace('text-', 'focus:ring-')}`}
-                                    placeholder="Your Name"
-                                />
-                            </div>
-                            <div className="mb-4">
-                                <label className="block text-sm font-medium text-slate-700 mb-2">Email</label>
-                                <input
-                                    type="email"
-                                    required
-                                    value={editUserEmail}
-                                    onChange={(e) => setEditUserEmail(e.target.value)}
-                                    className={`w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-opacity-50 outline-none transition-all focus:border-transparent ${themeClasses.primaryText.replace('text-', 'focus:ring-')}`}
-                                    placeholder="Your Email"
-                                />
-                                {editUserEmail !== user?.email && (
-                                    <p className="text-xs text-amber-600 mt-1">Changing email requires verification code.</p>
-                                )}
-                            </div>
-                            <div className="mb-4">
-                                <label className="block text-sm font-medium text-slate-700 mb-2">Mobile Number</label>
-                                <input
-                                    type="tel"
-                                    required
-                                    value={editUserMobile}
-                                    onChange={(e) => setEditUserMobile(e.target.value)}
-                                    className={`w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-opacity-50 outline-none transition-all focus:border-transparent ${themeClasses.primaryText.replace('text-', 'focus:ring-')}`}
-                                    placeholder="Your Mobile Number"
-                                />
-                                {editUserMobile !== user?.prefs?.mobile && (
-                                    <p className="text-xs text-amber-600 mt-1">Changing mobile requires verification code.</p>
-                                )}
-                            </div>
-                            <div className="mb-4">
-                                <label className="block text-sm font-medium text-slate-700 mb-2">Current Password</label>
-                                <input
-                                    type="password"
-                                    value={editUserOldPassword}
-                                    onChange={(e) => setEditUserOldPassword(e.target.value)}
-                                    className={`w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-opacity-50 outline-none transition-all focus:border-transparent ${themeClasses.primaryText.replace('text-', 'focus:ring-')}`}
-                                    placeholder="Required only if changing password"
-                                />
-                            </div>
-                            <div className="mb-4">
-                                <label className="block text-sm font-medium text-slate-700 mb-2">New Password (Optional)</label>
-                                <input
-                                    type="password"
-                                    value={editUserPassword}
-                                    onChange={(e) => setEditUserPassword(e.target.value)}
-                                    className={`w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-opacity-50 outline-none transition-all focus:border-transparent ${themeClasses.primaryText.replace('text-', 'focus:ring-')}`}
-                                    placeholder="Leave blank to keep current"
-                                />
-                            </div>
-                            <div className="mb-6">
-                                <label className="block text-sm font-medium text-slate-700 mb-2">Profile Picture</label>
-                                {user?.prefs?.avatar_url && !editUserAvatar && (
-                                    <div className="mb-3">
-                                        <img src={user.prefs.avatar_url} alt="User Avatar" className="h-16 w-16 object-cover rounded-xl border border-slate-200" />
-                                    </div>
-                                )}
-                                {editUserAvatar && (
-                                    <div className="mb-3">
-                                        <img src={URL.createObjectURL(editUserAvatar)} alt="Selected Avatar" className="h-16 w-16 object-cover rounded-xl border border-emerald-500 ring-2 ring-emerald-200" />
-                                        <p className="text-sm text-emerald-600 mt-2 font-medium">Selected: {editUserAvatar.name}</p>
-                                    </div>
-                                )}
-                                <div className="flex items-center justify-center w-full">
-                                    <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-slate-300 border-dashed rounded-xl cursor-pointer bg-slate-50 hover:bg-slate-100">
-                                        <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                                            <Upload className="w-8 h-8 mb-3 text-slate-400" />
-                                            <p className="mb-2 text-sm text-slate-500"><span className="font-semibold">Click to upload</span> or drag and drop</p>
-                                            <p className="text-xs text-slate-500">PNG, JPG up to 5MB</p>
+                        <form onSubmit={handleUpdateUser} className="p-6 overflow-y-auto custom-scrollbar">
+                            <div className="space-y-5">
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1.5">Full Name</label>
+                                    <div className="relative">
+                                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                                            <User className="h-5 w-5 text-slate-400" />
                                         </div>
-                                        <input 
-                                            type="file" 
-                                            className="hidden" 
-                                            accept="image/*"
-                                            onChange={(e) => {
-                                                if (e.target.files && e.target.files[0]) {
-                                                    setEditUserAvatar(e.target.files[0]);
-                                                }
-                                            }}
+                                        <input
+                                            type="text"
+                                            required
+                                            value={editUserName}
+                                            onChange={(e) => setEditUserName(e.target.value)}
+                                            className={`block w-full pl-11 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 focus:bg-white focus:ring-2 focus:ring-opacity-50 outline-none transition-all ${themeClasses.primaryText.replace('text-', 'focus:ring-')} focus:border-transparent font-medium`}
+                                            placeholder="e.g. Fahim"
                                         />
-                                    </label>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1.5">Email Address</label>
+                                    <div className="relative">
+                                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                                            <Mail className="h-5 w-5 text-slate-400" />
+                                        </div>
+                                        <input
+                                            type="email"
+                                            required
+                                            value={editUserEmail}
+                                            onChange={(e) => setEditUserEmail(e.target.value)}
+                                            className={`block w-full pl-11 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 focus:bg-white focus:ring-2 focus:ring-opacity-50 outline-none transition-all ${themeClasses.primaryText.replace('text-', 'focus:ring-')} focus:border-transparent font-medium`}
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1.5">Mobile Number</label>
+                                    <div className="relative">
+                                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                                            <Phone className="h-5 w-5 text-slate-400" />
+                                        </div>
+                                        <input
+                                            type="tel"
+                                            required
+                                            value={editUserMobile}
+                                            onChange={(e) => setEditUserMobile(e.target.value)}
+                                            className={`block w-full pl-11 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 focus:bg-white focus:ring-2 focus:ring-opacity-50 outline-none transition-all ${themeClasses.primaryText.replace('text-', 'focus:ring-')} focus:border-transparent font-medium`}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Password Section */}
+                                <div className="mt-8 bg-rose-50/50 border border-rose-100 rounded-2xl p-5 relative">
+                                    <div className="absolute -top-3 left-4 bg-rose-100 text-rose-700 px-3 py-0.5 rounded-full text-xs font-bold flex items-center shadow-sm border border-rose-200">
+                                        <Lock className="h-3 w-3 mr-1" /> Security
+                                    </div>
+                                    <div className="space-y-4 pt-2">
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">Current Password</label>
+                                            <input
+                                                type="password"
+                                                value={editUserOldPassword}
+                                                onChange={(e) => setEditUserOldPassword(e.target.value)}
+                                                className="block w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 focus:ring-2 focus:ring-rose-400 focus:border-transparent outline-none transition-all text-sm"
+                                                placeholder="Required if changing password"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">New Password</label>
+                                            <input
+                                                type="password"
+                                                value={editUserPassword}
+                                                onChange={(e) => setEditUserPassword(e.target.value)}
+                                                className="block w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 focus:ring-2 focus:ring-rose-400 focus:border-transparent outline-none transition-all text-sm"
+                                                placeholder="Leave blank to keep current"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="pt-2">
+                                    <label className="block text-sm font-bold text-slate-700 mb-3">Profile Picture</label>
+                                    <div className="flex items-center space-x-4">
+                                        <div className="flex-shrink-0">
+                                            {editUserAvatar ? (
+                                                <img src={URL.createObjectURL(editUserAvatar)} alt="Selected Avatar" className="h-20 w-20 object-cover rounded-full border-2 border-emerald-500 shadow-md" />
+                                            ) : user?.prefs?.avatar_url ? (
+                                                <img src={user.prefs.avatar_url} alt="User Avatar" className="h-20 w-20 object-cover rounded-full border border-slate-200 shadow-sm" />
+                                            ) : (
+                                                <div className="h-20 w-20 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200 border-dashed">
+                                                    <User className="h-8 w-8 text-slate-300" />
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="flex-1">
+                                            <label className="flex items-center justify-center w-full px-4 py-3 border border-slate-300 rounded-xl cursor-pointer bg-white hover:bg-slate-50 transition-colors shadow-sm font-medium text-slate-700 text-sm">
+                                                <Camera className="w-5 h-5 mr-2 text-slate-500" /> 
+                                                <span>{editUserAvatar ? 'Change Photo' : 'Upload Photo'}</span>
+                                                <input 
+                                                    type="file" 
+                                                    className="hidden" 
+                                                    accept="image/*"
+                                                    onChange={(e) => {
+                                                        if (e.target.files && e.target.files[0]) {
+                                                            setEditUserAvatar(e.target.files[0]);
+                                                        }
+                                                    }}
+                                                />
+                                            </label>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                            <div className="flex space-x-3">
+                            <div className="mt-8 pt-5 border-t border-slate-100 grid grid-cols-2 gap-3">
                                 <button
                                     type="button"
                                     onClick={() => setShowUserProfile(false)}
-                                    className="flex-1 px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-medium hover:bg-slate-50 transition-colors"
+                                    className="px-4 py-3.5 rounded-2xl border border-slate-200 bg-slate-50 text-slate-700 font-bold hover:bg-slate-100 transition-colors"
                                 >
                                     {t.cancel}
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={isUpdatingUser || !editUserName.trim() || !editUserEmail.trim() || !editUserMobile.trim()}
-                                    className={`flex-1 px-4 py-2.5 rounded-xl ${themeClasses.primaryBg} text-white font-medium ${themeClasses.primaryHoverBg} disabled:opacity-70 transition-colors flex justify-center items-center`}
+                                    className={`px-4 py-3.5 rounded-2xl ${themeClasses.primaryBg} text-white font-bold shadow-md hover:shadow-lg disabled:opacity-70 active:scale-95 transition-all flex justify-center items-center`}
                                 >
-                                    {isUpdatingUser ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Update'}
+                                    {isUpdatingUser ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Save Profile'}
                                 </button>
                             </div>
                         </form>

@@ -19,6 +19,7 @@ import SalesReturn from './SalesReturn';
 import PurchaseReturn from './PurchaseReturn';
 import BarcodeGen from './BarcodeGen';
 import Printer from './Printer';
+import PrintSettings from './PrintSettings';
 import GenericPage from './GenericPage';
 
 export default function SubPageRenderer({ view, onBack, shop, setShops, shops, setCurrentShop }: any) {
@@ -76,6 +77,8 @@ export default function SubPageRenderer({ view, onBack, shop, setShops, shops, s
             return <BarcodeGen onBack={onBack} shop={shop} />;
         case 'printer':
             return <Printer onBack={onBack} shop={shop} />;
+        case 'print-settings':
+            return <PrintSettings onBack={onBack} shop={shop} />;
         default: 
             return <GenericPage view={view} onBack={onBack} />;
     }

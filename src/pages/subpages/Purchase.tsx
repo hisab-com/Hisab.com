@@ -17,7 +17,7 @@ interface CartItem {
 }
 
 export default function Purchase({ onBack, shop }: any) {
-    const { t, themeClasses, formatCurrency } = useAppConfig();
+    const { t, themeClasses, formatCurrency, printConfig } = useAppConfig();
     
     // Views: 'selection' | 'checkout' | 'receipt'
     const [currentView, setCurrentView] = useState<'selection' | 'checkout' | 'receipt'>('selection');
@@ -519,26 +519,63 @@ export default function Purchase({ onBack, shop }: any) {
     }
 
     if (currentView === 'receipt' && receiptData) {
+        const items = JSON.parse(receiptData.items);
+        const fontSize = printConfig?.fontSize || 12;
+
         return (
             <div className="h-screen flex flex-col bg-slate-100">
+                <style dangerouslySetInnerHTML={{ __html: `
+                    @media print {
+                        body * { visibility: hidden; }
+                        #printable-receipt, #printable-receipt * { visibility: visible; }
+                        #printable-receipt { position: absolute; left: 0; top: 0; width: 100%; padding: 0; background: white; }
+                        .no-print { display: none !important; }
+                    }
+                    .receipt-container { font-size: ${fontSize}px; line-height: 1.4; }
+                    .template-2 { border: 1px solid #000; padding: 10px; }
+                    .template-3 { font-family: 'Courier New', Courier, monospace; }
+                    .template-4 { max-width: 58mm; margin: 0 auto; }
+                    .template-5 { border-top: 4px solid #000; }
+                `}} />
+
                 <div className="flex-1 overflow-y-auto p-4 flex justify-center">
-                    <div className="bg-white w-full max-w-md p-6 rounded-2xl shadow-sm border border-slate-200">
-                        <div className="text-center mb-6 border-b border-dashed border-slate-300 pb-6">
-                            <h2 className="text-2xl font-black text-slate-800">Purchase Receipt</h2>
-                            <p className="text-xs font-bold text-slate-500 tracking-widest mt-1">{shop.name}</p>
-                        </div>
-
-                        <div className="flex justify-between text-xs font-medium text-slate-600 mb-6">
-                            <div>
-                                <p className="mb-1">Supplier: <strong className="text-slate-800">{receiptData.supplier_name}</strong></p>
-                                <p>Date: {new Date(receiptData.date).toLocaleDateString()}</p>
+                    <div id="printable-receipt" className={`bg-white w-full max-w-md p-6 rounded-2xl shadow-sm border border-slate-200 receipt-container template-${printConfig?.templateId || '1'}`}>
+                        
+                        {/* Header Section */}
+                        {printConfig?.showHeader && (
+                            <div className="text-center mb-6 border-b border-dashed border-slate-300 pb-6">
+                                {printConfig?.showLogo && shop.logo_url && (
+                                    <img src={shop.logo_url} alt="Logo" className="h-16 mx-auto mb-3 object-contain" referrerPolicy="no-referrer" />
+                                )}
+                                <h2 className="text-2xl font-black text-slate-800 uppercase">{shop.name}</h2>
+                                {printConfig?.showDescription && shop.description && (
+                                    <p className="text-xs text-slate-500 mt-1">{shop.description}</p>
+                                )}
+                                <div className="mt-2 text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                                    {shop.address && <p>{shop.address}</p>}
+                                    {shop.phone && <p>Phone: {shop.phone}</p>}
+                                </div>
+                                <div className="mt-4 inline-block px-4 py-1 bg-slate-100 rounded-full text-[10px] font-black text-slate-600 tracking-widest">
+                                    PURCHASE RECEIPT
+                                </div>
                             </div>
-                            <div className="text-right">
-                                <p className="mb-1">Invoice: <strong className="text-slate-800">{receiptData.invoice_no}</strong></p>
-                                <p>Method: {receiptData.payment_method}</p>
-                            </div>
-                        </div>
+                        )}
 
+                        {/* Info Section */}
+                        {printConfig?.showVoucherInfo && (
+                            <div className="flex justify-between text-xs font-medium text-slate-600 mb-6">
+                                <div>
+                                    <p className="mb-1">Supplier: <strong className="text-slate-800">{receiptData.supplier_name}</strong></p>
+                                    <p>Date: {new Date(receiptData.date).toLocaleDateString()}</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="mb-1">Invoice: <strong className="text-slate-800">{receiptData.invoice_no}</strong></p>
+                                    <p>Method: {receiptData.payment_method}</p>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Items Table */}
                         <table className="w-full text-xs mb-6 border-collapse">
                             <thead>
                                 <tr className="border-b-2 border-slate-800">
@@ -548,7 +585,7 @@ export default function Purchase({ onBack, shop }: any) {
                                 </tr>
                             </thead>
                             <tbody>
-                                {JSON.parse(receiptData.items).map((item: any, i: number) => (
+                                {items.map((item: any, i: number) => (
                                     <tr key={i} className="border-b border-slate-100">
                                         <td className="py-3">
                                             <div className="font-bold text-slate-800">{item.name}</div>
@@ -561,26 +598,37 @@ export default function Purchase({ onBack, shop }: any) {
                             </tbody>
                         </table>
 
-                        <div className="border-t-2 border-slate-800 pt-3 text-sm">
-                            <div className="flex justify-between mb-3 font-black text-slate-800 text-base">
-                                <span>Total Amount:</span>
-                                <span>{formatCurrency(receiptData.total_amount)}</span>
-                            </div>
-                            <div className="flex justify-between mb-1 font-medium text-slate-600">
-                                <span>Paid:</span>
-                                <span>{formatCurrency(receiptData.paid_amount)}</span>
-                            </div>
-                            {receiptData.due_amount > 0 && (
-                                <div className="flex justify-between font-black text-rose-600 mt-1">
-                                    <span>Due:</span>
-                                    <span>{formatCurrency(receiptData.due_amount)}</span>
+                        {/* Bill Details Section */}
+                        {printConfig?.showBillDetails && (
+                            <div className="border-t-2 border-slate-800 pt-3 text-sm">
+                                <div className="flex justify-between mb-3 font-black text-slate-800 text-base">
+                                    <span>Total Amount:</span>
+                                    <span>{formatCurrency(receiptData.total_amount)}</span>
                                 </div>
-                            )}
+                                <div className="flex justify-between mb-1 font-medium text-slate-600">
+                                    <span>Paid:</span>
+                                    <span>{formatCurrency(receiptData.paid_amount)}</span>
+                                </div>
+                                {receiptData.due_amount > 0 && (
+                                    <div className="flex justify-between font-black text-rose-600 mt-1">
+                                        <span>Due:</span>
+                                        <span>{formatCurrency(receiptData.due_amount)}</span>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        <div className="mt-10 text-center">
+                            <p className="text-xs font-bold text-slate-800">Purchase Record</p>
+                            <p className="text-[10px] text-slate-400 mt-1">Generated by App</p>
                         </div>
                     </div>
                 </div>
 
-                <div className="p-4 bg-white border-t border-slate-200 flex gap-3 shadow-[0_-10px_20px_rgba(0,0,0,0.05)]">
+                <div className="no-print p-4 bg-white border-t border-slate-200 flex gap-3 shadow-[0_-10px_20px_rgba(0,0,0,0.05)]">
+                    <button onClick={() => window.print()} className="flex-1 py-4 bg-slate-800 text-white rounded-2xl font-bold text-lg hover:bg-slate-700 active:scale-95 transition-all flex justify-center items-center">
+                        <Printer className="mr-2 h-5 w-5" /> Print Receipt
+                    </button>
                     <button onClick={() => setCurrentView('selection')} className={`flex-1 py-4 bg-blue-600 text-white rounded-2xl font-bold text-lg hover:opacity-90 active:scale-95 transition-all flex justify-center items-center`}>
                         <ShoppingBag className="mr-2 h-5 w-5" /> New Purchase
                     </button>

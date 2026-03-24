@@ -17,7 +17,7 @@ interface CartItem {
 }
 
 export default function Sale({ onBack, shop }: any) {
-    const { t, themeClasses, formatCurrency } = useAppConfig();
+    const { t, themeClasses, formatCurrency, printConfig } = useAppConfig();
     
     // Views: 'selection' | 'checkout' | 'receipt'
     const [currentView, setCurrentView] = useState<'selection' | 'checkout' | 'receipt'>('selection');
@@ -569,35 +569,63 @@ export default function Sale({ onBack, shop }: any) {
     // RENDER RECEIPT VIEW (PRINTABLE)
     // ==========================================
     if (currentView === 'receipt' && receiptData) {
+        const items = JSON.parse(receiptData.items);
+        const fontSize = printConfig?.fontSize || 12;
+
         return (
             <div className="h-screen flex flex-col bg-slate-100">
                 <style dangerouslySetInnerHTML={{ __html: `
                     @media print {
                         body * { visibility: hidden; }
                         #printable-receipt, #printable-receipt * { visibility: visible; }
-                        #printable-receipt { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; background: white; }
+                        #printable-receipt { position: absolute; left: 0; top: 0; width: 100%; padding: 0; background: white; }
                         .no-print { display: none !important; }
                     }
+                    .receipt-container { font-size: ${fontSize}px; line-height: 1.4; }
+                    .template-2 { border: 1px solid #000; padding: 10px; }
+                    .template-3 { font-family: 'Courier New', Courier, monospace; }
+                    .template-4 { max-width: 58mm; margin: 0 auto; }
+                    .template-5 { border-top: 4px solid #000; }
                 `}} />
 
                 <div className="flex-1 overflow-y-auto p-4 flex justify-center">
-                    <div id="printable-receipt" className="bg-white w-full max-w-md p-6 rounded-2xl shadow-sm border border-slate-200">
-                        <div className="text-center mb-6 border-b border-dashed border-slate-300 pb-6">
-                            <h2 className="text-2xl font-black text-slate-800">{shop.name}</h2>
-                            <p className="text-xs font-bold text-slate-500 tracking-widest mt-1">CASH MEMO / INVOICE</p>
-                        </div>
-
-                        <div className="flex justify-between text-xs font-medium text-slate-600 mb-6">
-                            <div>
-                                <p className="mb-1">Customer: <strong className="text-slate-800">{receiptData.customer_name}</strong></p>
-                                <p>Date: {new Date(receiptData.date).toLocaleDateString()}</p>
+                    <div id="printable-receipt" className={`bg-white w-full max-w-md p-6 rounded-2xl shadow-sm border border-slate-200 receipt-container template-${printConfig?.templateId || '1'}`}>
+                        
+                        {/* Header Section */}
+                        {printConfig?.showHeader && (
+                            <div className="text-center mb-6 border-b border-dashed border-slate-300 pb-6">
+                                {printConfig?.showLogo && shop.logo_url && (
+                                    <img src={shop.logo_url} alt="Logo" className="h-16 mx-auto mb-3 object-contain" referrerPolicy="no-referrer" />
+                                )}
+                                <h2 className="text-2xl font-black text-slate-800 uppercase">{shop.name}</h2>
+                                {printConfig?.showDescription && shop.description && (
+                                    <p className="text-xs text-slate-500 mt-1">{shop.description}</p>
+                                )}
+                                <div className="mt-2 text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                                    {shop.address && <p>{shop.address}</p>}
+                                    {shop.phone && <p>Phone: {shop.phone}</p>}
+                                </div>
+                                <div className="mt-4 inline-block px-4 py-1 bg-slate-100 rounded-full text-[10px] font-black text-slate-600 tracking-widest">
+                                    {printConfig?.showChallanView ? 'CHALLAN' : 'CASH MEMO / INVOICE'}
+                                </div>
                             </div>
-                            <div className="text-right">
-                                <p className="mb-1">Invoice: <strong className="text-slate-800">{receiptData.invoice_no}</strong></p>
-                                <p>Method: {receiptData.payment_method}</p>
-                            </div>
-                        </div>
+                        )}
 
+                        {/* Invoice Info Section */}
+                        {printConfig?.showVoucherInfo && (
+                            <div className="flex justify-between text-xs font-medium text-slate-600 mb-6">
+                                <div>
+                                    <p className="mb-1">Customer: <strong className="text-slate-800">{receiptData.customer_name}</strong></p>
+                                    <p>Date: {new Date(receiptData.date).toLocaleDateString()}</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="mb-1">Invoice: <strong className="text-slate-800">{receiptData.invoice_no}</strong></p>
+                                    <p>Method: {receiptData.payment_method}</p>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Items Table */}
                         <table className="w-full text-xs mb-6 border-collapse">
                             <thead>
                                 <tr className="border-b-2 border-slate-800">
@@ -607,11 +635,11 @@ export default function Sale({ onBack, shop }: any) {
                                 </tr>
                             </thead>
                             <tbody>
-                                {JSON.parse(receiptData.items).map((item: any, i: number) => (
+                                {items.map((item: any, i: number) => (
                                     <tr key={i} className="border-b border-slate-100">
                                         <td className="py-3">
                                             <div className="flex items-center">
-                                                {item.image_url && (
+                                                {printConfig?.showProductImage && item.image_url && (
                                                     <img src={item.image_url} alt="" className="w-8 h-8 object-cover rounded mr-2" referrerPolicy="no-referrer" />
                                                 )}
                                                 <div>
@@ -628,35 +656,46 @@ export default function Sale({ onBack, shop }: any) {
                             </tbody>
                         </table>
 
-                        <div className="border-t-2 border-slate-800 pt-3 text-sm">
-                            <div className="flex justify-between mb-1 font-medium text-slate-600">
-                                <span>Subtotal:</span>
-                                <span>{formatCurrency(receiptData.subtotal)}</span>
-                            </div>
-                            {receiptData.discount > 0 && (
-                                <div className="flex justify-between mb-1 font-medium text-rose-500">
-                                    <span>Discount:</span>
-                                    <span>- {formatCurrency(receiptData.discount)}</span>
+                        {/* Bill Details Section */}
+                        {printConfig?.showBillDetails && (
+                            <div className="border-t-2 border-slate-800 pt-3 text-sm">
+                                <div className="flex justify-between mb-1 font-medium text-slate-600">
+                                    <span>Subtotal:</span>
+                                    <span>{formatCurrency(receiptData.subtotal)}</span>
                                 </div>
-                            )}
-                            <div className="flex justify-between mb-3 font-black text-slate-800 text-base">
-                                <span>Grand Total:</span>
-                                <span>{formatCurrency(receiptData.total_amount)}</span>
-                            </div>
-                            
-                            <div className="border-t border-dashed border-slate-300 my-3"></div>
-                            
-                            <div className="flex justify-between mb-1 font-medium text-slate-600">
-                                <span>Paid / Received:</span>
-                                <span>{formatCurrency(receiptData.paid_amount)}</span>
-                            </div>
-                            {receiptData.due_amount > 0 && (
-                                <div className="flex justify-between font-black text-rose-600 mt-1">
-                                    <span>Due Amount:</span>
-                                    <span>{formatCurrency(receiptData.due_amount)}</span>
+                                {receiptData.discount > 0 && (
+                                    <div className="flex justify-between mb-1 font-medium text-rose-500">
+                                        <span>Discount:</span>
+                                        <span>- {formatCurrency(receiptData.discount)}</span>
+                                    </div>
+                                )}
+                                <div className="flex justify-between mb-3 font-black text-slate-800 text-base">
+                                    <span>Grand Total:</span>
+                                    <span>{formatCurrency(receiptData.total_amount)}</span>
                                 </div>
-                            )}
-                        </div>
+                                
+                                <div className="border-t border-dashed border-slate-300 my-3"></div>
+                                
+                                <div className="flex justify-between mb-1 font-medium text-slate-600">
+                                    <span>Paid / Received:</span>
+                                    <span>{formatCurrency(receiptData.paid_amount)}</span>
+                                </div>
+                                {receiptData.due_amount > 0 && (
+                                    <div className="flex justify-between font-black text-rose-600 mt-1">
+                                        <span>Due Amount:</span>
+                                        <span>{formatCurrency(receiptData.due_amount)}</span>
+                                    </div>
+                                )}
+
+                                {/* Previous Due Section */}
+                                {printConfig?.showPreviousDue && (
+                                    <div className="mt-3 pt-3 border-t border-slate-100 flex justify-between text-xs font-bold text-slate-500">
+                                        <span>Previous Balance:</span>
+                                        <span>{formatCurrency(0)}</span> {/* Placeholder for actual previous due */}
+                                    </div>
+                                )}
+                            </div>
+                        )}
 
                         <div className="mt-10 text-center">
                             <p className="text-xs font-bold text-slate-800">Thank you for your business!</p>

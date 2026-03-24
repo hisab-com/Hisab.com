@@ -56,6 +56,8 @@ interface AppConfigContextType {
     setCurrency: (currency: string) => void;
     decimalPoint: number;
     setDecimalPoint: (decimalPoint: number) => void;
+    printConfig: PrintConfig;
+    setPrintConfig: (config: PrintConfig) => void;
     formatCurrency: (amount: number | string) => string;
     t: typeof translations.en;
     themeClasses: ThemeClasses;
@@ -63,22 +65,51 @@ interface AppConfigContextType {
 
 const AppConfigContext = createContext<AppConfigContextType | undefined>(undefined);
 
+interface PrintConfig {
+    templateId: number;
+    showLogo: boolean;
+    showDescription: boolean;
+    showHeader: boolean;
+    showProductImage: boolean;
+    showChallan: boolean;
+    showBill: boolean;
+    showPreviousDue: boolean;
+    showVoucherInfo: boolean;
+    fontSize: number;
+}
+
+const defaultPrintConfig: PrintConfig = {
+    templateId: 1,
+    showLogo: true,
+    showDescription: true,
+    showHeader: true,
+    showProductImage: false,
+    showChallan: true,
+    showBill: true,
+    showPreviousDue: true,
+    showVoucherInfo: true,
+    fontSize: 12
+};
+
 export const AppConfigProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [language, setLanguage] = useState<Language>('bn');
     const [theme, setTheme] = useState<Theme>('bkash');
     const [currency, setCurrency] = useState<string>('৳');
     const [decimalPoint, setDecimalPoint] = useState<number>(2);
+    const [printConfig, setPrintConfig] = useState<PrintConfig>(defaultPrintConfig);
 
     useEffect(() => {
         const savedLang = localStorage.getItem('app_lang') as Language;
         const savedTheme = localStorage.getItem('app_theme') as Theme;
         const savedCurrency = localStorage.getItem('app_currency');
         const savedDecimal = localStorage.getItem('app_decimal');
+        const savedPrint = localStorage.getItem('app_print_config');
         
         if (savedLang) setLanguage(savedLang);
         if (savedTheme) setTheme(savedTheme);
         if (savedCurrency) setCurrency(savedCurrency);
         if (savedDecimal) setDecimalPoint(parseInt(savedDecimal, 10));
+        if (savedPrint) setPrintConfig(JSON.parse(savedPrint));
     }, []);
 
     const handleSetLanguage = (lang: Language) => {
@@ -101,6 +132,11 @@ export const AppConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         localStorage.setItem('app_decimal', newDecimal.toString());
     };
 
+    const handleSetPrintConfig = (newConfig: PrintConfig) => {
+        setPrintConfig(newConfig);
+        localStorage.setItem('app_print_config', JSON.stringify(newConfig));
+    };
+
     const formatCurrency = (amount: any) => {
         if (amount === null || amount === undefined) return `${currency}0`;
         const num = typeof amount === 'string' ? parseFloat(amount) : amount;
@@ -113,6 +149,7 @@ export const AppConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             theme, setTheme: handleSetTheme, 
             currency, setCurrency: handleSetCurrency,
             decimalPoint, setDecimalPoint: handleSetDecimalPoint,
+            printConfig, setPrintConfig: handleSetPrintConfig,
             formatCurrency,
             t: translations[language], 
             themeClasses: themes[theme] 

@@ -30,7 +30,8 @@ const translations = {
         shopName: 'Shop Name', cancel: 'Cancel', create: 'Create', staffMobile: 'Staff Mobile Number', staffMobileHint: 'If an account exists with this number, they will see your shop.', add: 'Add',
         dbSetupRequired: 'Database Setup Required!', dbSetupDesc: 'You need to setup the Appwrite database for the multi-shop system.', checkAgain: 'I have setup, check again',
         dailySummary: 'Today\'s Summary', incomes: 'Incomes', expense: 'Expense', cash: 'Cash', dueGiven: 'Due Given', dueTaken: 'Due Taken', notifications: 'Notifications',
-        currency: 'Currency', decimalPoint: 'Decimal Point'
+        currency: 'Currency', decimalPoint: 'Decimal Point',
+        printPreview: 'Print Preview', style: 'Style', logo: 'Logo', description: 'Description', header: 'Header', productImage: 'Product Image', challanView: 'Challan View', previousDue: 'Previous Due', voucherInfo: 'Voucher Info', priceOnly: 'Price only', pos: 'POS', token: 'Token'
     },
     bn: {
         home: 'হোম', report: 'রিপোর্ট', settings: 'সেটিংস',
@@ -43,7 +44,8 @@ const translations = {
         shopName: 'দোকানের নাম', cancel: 'বাতিল', create: 'তৈরি করুন', staffMobile: 'স্টাফের মোবাইল নম্বর', staffMobileHint: 'এই নম্বর দিয়ে অ্যাকাউন্ট খোলা থাকলে তিনি আপনার দোকান দেখতে পাবেন।', add: 'যুক্ত করুন',
         dbSetupRequired: 'ডাটাবেস সেটআপ প্রয়োজন!', dbSetupDesc: 'মাল্টি-শপ সিস্টেম চালানোর জন্য আপনাকে Appwrite-এ ডাটাবেস তৈরি করতে হবে।', checkAgain: 'সেটআপ করেছি, আবার চেক করুন',
         dailySummary: 'আজকের সারসংক্ষেপ', incomes: 'আয়', expense: 'খরচ', cash: 'ক্যাশ', dueGiven: 'বকেয়া দেওয়া', dueTaken: 'বকেয়া নেওয়া', notifications: 'নোটিফিকেশন',
-        currency: 'মুদ্রা (Currency)', decimalPoint: 'দশমিক বিন্দু (Decimal)'
+        currency: 'মুদ্রা (Currency)', decimalPoint: 'দশমিক বিন্দু (Decimal)',
+        printPreview: 'প্রিন্ট প্রিভিউ', style: 'স্টাইল', logo: 'লোগো', description: 'বিবরণ', header: 'হেডার', productImage: 'পণ্যের ছবি', challanView: 'চালান ভিউ', previousDue: 'পূর্বের বকেয়া', voucherInfo: 'ভাউচার ইনফো', priceOnly: 'শুধু দাম', pos: 'পস (POS)', token: 'টোকেন'
     }
 };
 
@@ -56,8 +58,6 @@ interface AppConfigContextType {
     setCurrency: (currency: string) => void;
     decimalPoint: number;
     setDecimalPoint: (decimalPoint: number) => void;
-    printConfig: PrintConfig;
-    setPrintConfig: (config: PrintConfig) => void;
     formatCurrency: (amount: number | string) => string;
     t: typeof translations.en;
     themeClasses: ThemeClasses;
@@ -65,51 +65,25 @@ interface AppConfigContextType {
 
 const AppConfigContext = createContext<AppConfigContextType | undefined>(undefined);
 
-interface PrintConfig {
-    templateId: number;
-    showLogo: boolean;
-    showDescription: boolean;
-    showHeader: boolean;
-    showProductImage: boolean;
-    showChallan: boolean;
-    showBill: boolean;
-    showPreviousDue: boolean;
-    showVoucherInfo: boolean;
-    fontSize: number;
-}
-
-const defaultPrintConfig: PrintConfig = {
-    templateId: 1,
-    showLogo: true,
-    showDescription: true,
-    showHeader: true,
-    showProductImage: false,
-    showChallan: true,
-    showBill: true,
-    showPreviousDue: true,
-    showVoucherInfo: true,
-    fontSize: 12
-};
-
 export const AppConfigProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [language, setLanguage] = useState<Language>('bn');
     const [theme, setTheme] = useState<Theme>('bkash');
     const [currency, setCurrency] = useState<string>('৳');
     const [decimalPoint, setDecimalPoint] = useState<number>(2);
-    const [printConfig, setPrintConfig] = useState<PrintConfig>(defaultPrintConfig);
 
     useEffect(() => {
         const savedLang = localStorage.getItem('app_lang') as Language;
         const savedTheme = localStorage.getItem('app_theme') as Theme;
         const savedCurrency = localStorage.getItem('app_currency');
         const savedDecimal = localStorage.getItem('app_decimal');
-        const savedPrint = localStorage.getItem('app_print_config');
         
         if (savedLang) setLanguage(savedLang);
         if (savedTheme) setTheme(savedTheme);
         if (savedCurrency) setCurrency(savedCurrency);
-        if (savedDecimal) setDecimalPoint(parseInt(savedDecimal, 10));
-        if (savedPrint) setPrintConfig(JSON.parse(savedPrint));
+        if (savedDecimal) {
+            const parsed = parseInt(savedDecimal, 10);
+            if (!isNaN(parsed)) setDecimalPoint(parsed);
+        }
     }, []);
 
     const handleSetLanguage = (lang: Language) => {
@@ -128,19 +102,16 @@ export const AppConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     };
 
     const handleSetDecimalPoint = (newDecimal: number) => {
-        setDecimalPoint(newDecimal);
-        localStorage.setItem('app_decimal', newDecimal.toString());
-    };
-
-    const handleSetPrintConfig = (newConfig: PrintConfig) => {
-        setPrintConfig(newConfig);
-        localStorage.setItem('app_print_config', JSON.stringify(newConfig));
+        const val = isNaN(newDecimal) ? 2 : newDecimal;
+        setDecimalPoint(val);
+        localStorage.setItem('app_decimal', val.toString());
     };
 
     const formatCurrency = (amount: any) => {
-        if (amount === null || amount === undefined) return `${currency}0`;
+        if (amount === null || amount === undefined || amount === '') return `${currency}0`;
         const num = typeof amount === 'string' ? parseFloat(amount) : amount;
-        return `${currency}${isNaN(num) ? 0 : num.toFixed(decimalPoint)}`;
+        const dp = isNaN(decimalPoint) ? 2 : decimalPoint;
+        return `${currency}${isNaN(num) ? (0).toFixed(dp) : num.toFixed(dp)}`;
     };
 
     return (
@@ -149,7 +120,6 @@ export const AppConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             theme, setTheme: handleSetTheme, 
             currency, setCurrency: handleSetCurrency,
             decimalPoint, setDecimalPoint: handleSetDecimalPoint,
-            printConfig, setPrintConfig: handleSetPrintConfig,
             formatCurrency,
             t: translations[language], 
             themeClasses: themes[theme] 

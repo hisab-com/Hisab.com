@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAppConfig } from '../../context/AppConfigContext';
-import { Store, User, Globe, Palette, LogOut, Shield, ChevronRight, Plus, Check, DollarSign, Hash, X, Upload, Loader2, MapPin, Cloud, Tag, Lock, Mail, Phone, Camera, DoorOpen, Printer } from 'lucide-react';
+import { Store, User, Globe, Palette, LogOut, Shield, ChevronRight, Plus, Check, DollarSign, Hash, X, Upload, Loader2, MapPin, Cloud, Tag, Lock, Mail, Phone, Camera, DoorOpen } from 'lucide-react';
 import { databases, DB_ID, SHOPS_COLLECTION, account } from '../../lib/appwrite';
 import { uploadToCloudinary } from '../../utils/cloudinary';
 
@@ -276,15 +276,6 @@ export default function SettingsTab({
                             <User className="h-5 w-5" />
                         </div>
                         <span className="font-semibold text-slate-700 text-base">{t.userProfile}</span>
-                    </div>
-                    <ChevronRight className="h-5 w-5 text-slate-400" />
-                </button>
-                <button onClick={() => onNavigate('print-settings')} className="w-full flex items-center justify-between p-5 hover:bg-slate-50 transition-colors active:bg-slate-100">
-                    <div className="flex items-center">
-                        <div className="h-10 w-10 rounded-full bg-blue-50 flex items-center justify-center mr-4 text-blue-600">
-                            <Printer className="h-5 w-5" />
-                        </div>
-                        <span className="font-semibold text-slate-700 text-base">Print & Receipt Style</span>
                     </div>
                     <ChevronRight className="h-5 w-5 text-slate-400" />
                 </button>

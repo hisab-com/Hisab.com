@@ -4,6 +4,7 @@ import { Search, Barcode, ArrowRight, ArrowLeft, Plus, Minus, Trash2, CheckCircl
 import { useAppConfig } from '../../context/AppConfigContext';
 import { databases, DB_ID, PRODUCTS_COLLECTION, CONTACTS_COLLECTION, PURCHASES_COLLECTION, STOCK_HISTORY_COLLECTION, ID, Query } from '../../lib/appwrite';
 import { Html5Qrcode } from 'html5-qrcode';
+import PrintPreview from '../../components/PrintPreview';
 
 interface CartItem {
     $id: string;
@@ -17,7 +18,7 @@ interface CartItem {
 }
 
 export default function Purchase({ onBack, shop }: any) {
-    const { t, themeClasses, formatCurrency, printConfig } = useAppConfig();
+    const { t, themeClasses, formatCurrency } = useAppConfig();
     
     // Views: 'selection' | 'checkout' | 'receipt'
     const [currentView, setCurrentView] = useState<'selection' | 'checkout' | 'receipt'>('selection');
@@ -179,9 +180,11 @@ export default function Purchase({ onBack, shop }: any) {
         const itemsToSave = cartItems.map(item => ({
             id: item.$id,
             name: item.name,
+            brand: item.brand || '',
             qty: item.qty,
             buyRate: item.buyRate,
-            sellRate: item.sell_price
+            sellRate: item.sell_price,
+            image_url: item.image_url || ''
         }));
 
         const finalSuppName = supplierName.trim() || 'General Supplier';
@@ -519,121 +522,18 @@ export default function Purchase({ onBack, shop }: any) {
     }
 
     if (currentView === 'receipt' && receiptData) {
-        const items = JSON.parse(receiptData.items);
-        const fontSize = printConfig?.fontSize || 12;
+        const printData = {
+            ...receiptData,
+            items: typeof receiptData.items === 'string' ? JSON.parse(receiptData.items) : receiptData.items
+        };
 
         return (
-            <div className="h-screen flex flex-col bg-slate-100">
-                <style dangerouslySetInnerHTML={{ __html: `
-                    @media print {
-                        body * { visibility: hidden; }
-                        #printable-receipt, #printable-receipt * { visibility: visible; }
-                        #printable-receipt { position: absolute; left: 0; top: 0; width: 100%; padding: 0; background: white; }
-                        .no-print { display: none !important; }
-                    }
-                    .receipt-container { font-size: ${fontSize}px; line-height: 1.4; }
-                    .template-2 { border: 1px solid #000; padding: 10px; }
-                    .template-3 { font-family: 'Courier New', Courier, monospace; }
-                    .template-4 { max-width: 58mm; margin: 0 auto; }
-                    .template-5 { border-top: 4px solid #000; }
-                `}} />
-
-                <div className="flex-1 overflow-y-auto p-4 flex justify-center">
-                    <div id="printable-receipt" className={`bg-white w-full max-w-md p-6 rounded-2xl shadow-sm border border-slate-200 receipt-container template-${printConfig?.templateId || '1'}`}>
-                        
-                        {/* Header Section */}
-                        {printConfig?.showHeader && (
-                            <div className="text-center mb-6 border-b border-dashed border-slate-300 pb-6">
-                                {printConfig?.showLogo && shop.logo_url && (
-                                    <img src={shop.logo_url} alt="Logo" className="h-16 mx-auto mb-3 object-contain" referrerPolicy="no-referrer" />
-                                )}
-                                <h2 className="text-2xl font-black text-slate-800 uppercase">{shop.name}</h2>
-                                {printConfig?.showDescription && shop.description && (
-                                    <p className="text-xs text-slate-500 mt-1">{shop.description}</p>
-                                )}
-                                <div className="mt-2 text-[10px] text-slate-500 font-bold uppercase tracking-widest">
-                                    {shop.address && <p>{shop.address}</p>}
-                                    {shop.phone && <p>Phone: {shop.phone}</p>}
-                                </div>
-                                <div className="mt-4 inline-block px-4 py-1 bg-slate-100 rounded-full text-[10px] font-black text-slate-600 tracking-widest">
-                                    PURCHASE RECEIPT
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Info Section */}
-                        {printConfig?.showVoucherInfo && (
-                            <div className="flex justify-between text-xs font-medium text-slate-600 mb-6">
-                                <div>
-                                    <p className="mb-1">Supplier: <strong className="text-slate-800">{receiptData.supplier_name}</strong></p>
-                                    <p>Date: {new Date(receiptData.date).toLocaleDateString()}</p>
-                                </div>
-                                <div className="text-right">
-                                    <p className="mb-1">Invoice: <strong className="text-slate-800">{receiptData.invoice_no}</strong></p>
-                                    <p>Method: {receiptData.payment_method}</p>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Items Table */}
-                        <table className="w-full text-xs mb-6 border-collapse">
-                            <thead>
-                                <tr className="border-b-2 border-slate-800">
-                                    <th className="text-left py-2">Item</th>
-                                    <th className="text-center py-2">Qty</th>
-                                    <th className="text-right py-2">Total</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {items.map((item: any, i: number) => (
-                                    <tr key={i} className="border-b border-slate-100">
-                                        <td className="py-3">
-                                            <div className="font-bold text-slate-800">{item.name}</div>
-                                            <div className="text-[10px] text-slate-400 mt-0.5">@ {formatCurrency(item.buyRate)}</div>
-                                        </td>
-                                        <td className="text-center py-3 font-bold">{item.qty}</td>
-                                        <td className="text-right py-3 font-bold text-slate-800">{formatCurrency(item.qty * item.buyRate)}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-
-                        {/* Bill Details Section */}
-                        {printConfig?.showBillDetails && (
-                            <div className="border-t-2 border-slate-800 pt-3 text-sm">
-                                <div className="flex justify-between mb-3 font-black text-slate-800 text-base">
-                                    <span>Total Amount:</span>
-                                    <span>{formatCurrency(receiptData.total_amount)}</span>
-                                </div>
-                                <div className="flex justify-between mb-1 font-medium text-slate-600">
-                                    <span>Paid:</span>
-                                    <span>{formatCurrency(receiptData.paid_amount)}</span>
-                                </div>
-                                {receiptData.due_amount > 0 && (
-                                    <div className="flex justify-between font-black text-rose-600 mt-1">
-                                        <span>Due:</span>
-                                        <span>{formatCurrency(receiptData.due_amount)}</span>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        <div className="mt-10 text-center">
-                            <p className="text-xs font-bold text-slate-800">Purchase Record</p>
-                            <p className="text-[10px] text-slate-400 mt-1">Generated by App</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="no-print p-4 bg-white border-t border-slate-200 flex gap-3 shadow-[0_-10px_20px_rgba(0,0,0,0.05)]">
-                    <button onClick={() => window.print()} className="flex-1 py-4 bg-slate-800 text-white rounded-2xl font-bold text-lg hover:bg-slate-700 active:scale-95 transition-all flex justify-center items-center">
-                        <Printer className="mr-2 h-5 w-5" /> Print Receipt
-                    </button>
-                    <button onClick={() => setCurrentView('selection')} className={`flex-1 py-4 bg-blue-600 text-white rounded-2xl font-bold text-lg hover:opacity-90 active:scale-95 transition-all flex justify-center items-center`}>
-                        <ShoppingBag className="mr-2 h-5 w-5" /> New Purchase
-                    </button>
-                </div>
-            </div>
+            <PrintPreview 
+                data={printData} 
+                shop={shop} 
+                onBack={() => setCurrentView('selection')} 
+                type="Purchase" 
+            />
         );
     }
 

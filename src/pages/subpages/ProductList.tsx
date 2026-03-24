@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import PageHeader from '../../components/PageHeader';
-import { Plus, Package, Edit, Trash2, Search, Barcode, MoreVertical, Layers, FileText, X, Upload, Loader2, AlertTriangle, Calendar, Tag, Minus, Image as ImageIcon, CheckCircle2, Printer } from 'lucide-react';
+import { Plus, Package, Edit, Trash2, Search, Barcode, MoreVertical, Layers, FileText, X, Upload, Loader2, AlertTriangle, Calendar, Tag, Minus, Image as ImageIcon, CheckCircle2, Printer, Share2 } from 'lucide-react';
 import { useAppConfig } from '../../context/AppConfigContext';
 import { databases, DB_ID, PRODUCTS_COLLECTION, STOCK_HISTORY_COLLECTION, ID, Query } from '../../lib/appwrite';
 import { uploadToCloudinary } from '../../utils/cloudinary';
@@ -282,6 +282,38 @@ export default function ProductList({ onBack, shop }: any) {
         window.print();
     };
 
+    // --- CSV এক্সপোর্ট ফাংশন (Excel/Access এর জন্য) ---
+    const handleExportCSV = () => {
+        if (!products || products.length === 0) return;
+        
+        const headers = ["#", "Product Name", "Brand", "Stock", "Unit", "Buy Price", "Sell Price", "Total Value"];
+        const rows = products.map((p, index) => [
+            index + 1,
+            p.name,
+            p.brand || "",
+            p.stock,
+            p.unit || "",
+            p.buy_price,
+            p.sell_price,
+            (p.stock * p.sell_price).toFixed(2)
+        ]);
+
+        const csvContent = [
+            headers.join(","),
+            ...rows.map(row => row.map(cell => `"${cell}"`).join(","))
+        ].join("\n");
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `${shop.name || 'Inventory'}_Report_${new Date().toLocaleDateString()}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     // প্রিন্ট পেজের জন্য টোটাল ক্যালকুলেশন
     const totalValue = Array.isArray(products) ? products.reduce((acc, curr) => acc + (Number(curr.stock || 0) * Number(curr.sell_price || 0)), 0) : 0;
     const totalQty = Array.isArray(products) ? products.reduce((acc, curr) => acc + Number(curr.stock || 0), 0) : 0;
@@ -300,8 +332,9 @@ export default function ProductList({ onBack, shop }: any) {
                     .print-table { width: 100%; border-collapse: collapse; font-size: 12px; font-family: 'Noto Sans Bengali', sans-serif; color: #333; }
                     .print-table th, .print-table td { border-bottom: 1px solid #e5e7eb; padding: 8px 4px; text-align: right; }
                     .print-table th { font-weight: bold; color: #1f2937; border-bottom: 2px solid #d1d5db; }
-                    .print-table th:nth-child(1), .print-table td:nth-child(1) { text-align: center; width: 40px; }
-                    .print-table th:nth-child(2), .print-table td:nth-child(2) { text-align: left; }
+                    .print-table th:nth-child(1), .print-table td:nth-child(1) { text-align: center; width: 30px; }
+                    .print-table th:nth-child(2), .print-table td:nth-child(2) { text-align: center; width: 50px; }
+                    .print-table th:nth-child(3), .print-table td:nth-child(3) { text-align: left; }
                     
                     .print-header { text-align: center; margin-bottom: 20px; }
                     .print-header h2 { font-size: 24px; font-weight: bold; margin: 0 0 5px 0; color: #000; }
@@ -320,6 +353,11 @@ export default function ProductList({ onBack, shop }: any) {
                     onBack={onBack} 
                     rightContent={
                         <div className="flex space-x-2">
+                            {/* CSV Export Button */}
+                            <button onClick={handleExportCSV} className="p-2 bg-white/20 text-white rounded-xl hover:bg-white/30 transition-colors shadow-sm active:scale-95 flex items-center justify-center" title="Export to Excel/CSV">
+                                <Share2 className="h-5 w-5" />
+                            </button>
+
                             {/* Native Print Button */}
                             <button onClick={handleNativePrint} className="p-2 bg-white/20 text-white rounded-xl hover:bg-white/30 transition-colors shadow-sm active:scale-95 flex items-center justify-center">
                                 <Printer className="h-5 w-5" />
@@ -641,6 +679,7 @@ export default function ProductList({ onBack, shop }: any) {
                     <thead>
                         <tr>
                             <th>#</th>
+                            <th>{t.image || "Image"}</th>
                             <th>{t.product || "Product"}</th>
                             <th>{t.stock || "Stock Qty"}</th>
                             <th>{t.buyPrice || "Buy Price"}</th>
@@ -654,6 +693,13 @@ export default function ProductList({ onBack, shop }: any) {
                             return (
                                 <tr key={p.$id}>
                                     <td style={{textAlign: 'center', color: '#666'}}>{index + 1}</td>
+                                    <td style={{textAlign: 'center'}}>
+                                        {p.image_url ? (
+                                            <img src={p.image_url} alt="" style={{width: '30px', height: '30px', objectFit: 'cover', borderRadius: '4px', margin: '0 auto'}} referrerPolicy="no-referrer" />
+                                        ) : (
+                                            <div style={{width: '30px', height: '30px', background: '#f3f4f6', borderRadius: '4px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px', color: '#9ca3af'}}>No Img</div>
+                                        )}
+                                    </td>
                                     <td>
                                         <span style={{fontWeight: 'bold', color: '#1f2937'}}>{p.name}</span>
                                         {p.brand && <div style={{fontSize: '10px', color: '#6b7280'}}>{p.brand}</div>}

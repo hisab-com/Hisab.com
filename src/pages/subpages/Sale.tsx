@@ -156,7 +156,8 @@ export default function Sale({ onBack, shop }: any) {
             qty: item.qty,
             sellRate: item.sellRate,
             buyRate: item.buy_price,
-            profit: (item.sellRate - item.buy_price) * item.qty
+            profit: (item.sellRate - item.buy_price) * item.qty,
+            image_url: item.image_url || ''
         }));
 
         const totalProfit = itemsToSave.reduce((sum, item) => sum + item.profit, 0) - discountAmt;
@@ -220,7 +221,7 @@ export default function Sale({ onBack, shop }: any) {
                 },
                 (err) => {}
             ).catch(err => {
-                alert("Camera error: " + err);
+                console.error("Camera error:", err);
                 stopScanner();
             });
         }, 100);
@@ -521,9 +522,16 @@ export default function Sale({ onBack, shop }: any) {
                                 {JSON.parse(receiptData.items).map((item: any, i: number) => (
                                     <tr key={i} className="border-b border-slate-100">
                                         <td className="py-3">
-                                            <div className="font-bold text-slate-800">{item.name}</div>
-                                            {item.brand && <div className="text-[10px] text-slate-500">{item.brand}</div>}
-                                            <div className="text-[10px] text-slate-400 mt-0.5">@ {formatCurrency(item.sellRate)}</div>
+                                            <div className="flex items-center">
+                                                {item.image_url && (
+                                                    <img src={item.image_url} alt="" className="w-8 h-8 object-cover rounded mr-2" referrerPolicy="no-referrer" />
+                                                )}
+                                                <div>
+                                                    <div className="font-bold text-slate-800">{item.name}</div>
+                                                    {item.brand && <div className="text-[10px] text-slate-500">{item.brand}</div>}
+                                                    <div className="text-[10px] text-slate-400 mt-0.5">@ {formatCurrency(item.sellRate)}</div>
+                                                </div>
+                                            </div>
                                         </td>
                                         <td className="text-center py-3 font-bold">{item.qty}</td>
                                         <td className="text-right py-3 font-bold text-slate-800">{formatCurrency(item.qty * item.sellRate)}</td>

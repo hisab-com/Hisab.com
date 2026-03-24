@@ -1,5 +1,5 @@
 {
   "name": "দোকান ম্যানেজমেন্ট",
   "description": "Shop management application with Appwrite backend and custom email verification.",
-  "requestFramePermissions": []
+  "requestFramePermissions": ["camera"]
 }

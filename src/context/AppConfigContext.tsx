@@ -42,7 +42,7 @@ const translations = {
         productName: 'Product Name', productNamePlaceholder: 'Enter product name', brandCompany: 'Brand/Company', brandPlaceholder: 'Enter brand or company', pricingInfo: 'Pricing Info', buyPrice: 'Buy Price', sellPrice: 'Sell Price',
         openingQuantity: 'Opening Quantity', unit: 'Unit', unitPlaceholder: 'e.g. kg, pcs, box', barcodeSku: 'Barcode/SKU', barcodePlaceholder: 'Scan or enter barcode', advancedSettings: 'Advanced Settings', wholesalePrice: 'Wholesale Price',
         enterWholesalePrice: 'Enter wholesale price', lowStockAlert: 'Low Stock Alert', minQtyDefault: 'Min qty (default 5)', expireDate: 'Expire Date', saveProduct: 'Save Product', update: 'Update', closeCamera: 'Close Camera',
-        inventoryReport: 'Inventory Report', image: 'Image', product: 'Product', totalValue: 'Total Value'
+        inventoryReport: 'Inventory Report', image: 'Image', product: 'Product', totalValue: 'Total Value', printSettings: 'Print Settings', configure: 'Configure'
     },
     bn: {
         home: 'হোম', report: 'রিপোর্ট', settings: 'সেটিংস',
@@ -64,9 +64,27 @@ const translations = {
         productName: 'পণ্যের নাম', productNamePlaceholder: 'পণ্যের নাম লিখুন', brandCompany: 'ব্র্যান্ড/কোম্পানি', brandPlaceholder: 'ব্র্যান্ড বা কোম্পানির নাম', pricingInfo: 'মূল্য তথ্য', buyPrice: 'ক্রয় মূল্য', sellPrice: 'বিক্রয় মূল্য',
         openingQuantity: 'প্রারম্ভিক পরিমাণ', unit: 'একক', unitPlaceholder: 'যেমন: কেজি, পিস, বক্স', barcodeSku: 'বারকোড/SKU', barcodePlaceholder: 'বারকোড স্ক্যান বা লিখুন', advancedSettings: 'উন্নত সেটিংস', wholesalePrice: 'পাইকারি মূল্য',
         enterWholesalePrice: 'পাইকারি মূল্য লিখুন', lowStockAlert: 'লো স্টক অ্যালার্ট', minQtyDefault: 'সর্বনিম্ন পরিমাণ (ডিফল্ট ৫)', expireDate: 'মেয়াদোত্তীর্ণের তারিখ', saveProduct: 'পণ্য সংরক্ষণ', update: 'আপডেট', closeCamera: 'ক্যামেরা বন্ধ করুন',
-        inventoryReport: 'ইনভেন্টরি রিপোর্ট', image: 'ছবি', product: 'পণ্য', totalValue: 'মোট মূল্য'
+        inventoryReport: 'ইনভেন্টরি রিপোর্ট', image: 'ছবি', product: 'পণ্য', totalValue: 'মোট মূল্য', printSettings: 'প্রিন্ট সেটিংস', configure: 'কনফিগার'
     }
 };
+
+export interface PrintSettings {
+    style: string;
+    showLogo: boolean;
+    showDesc: boolean;
+    showHeader: boolean;
+    showImage: boolean;
+    isChallan: boolean;
+    showPrevDue: boolean;
+    showVoucherInfo: boolean;
+    priceOnly: boolean;
+}
+
+export interface FeatureSettings {
+    vatEnabled: boolean;
+    warrantyEnabled: boolean;
+    discountEnabled: boolean;
+}
 
 interface AppConfigContextType {
     language: Language;
@@ -77,6 +95,10 @@ interface AppConfigContextType {
     setCurrency: (currency: string) => void;
     decimalPoint: number;
     setDecimalPoint: (decimalPoint: number) => void;
+    printSettings: PrintSettings;
+    setPrintSettings: (settings: PrintSettings) => void;
+    featureSettings: FeatureSettings;
+    setFeatureSettings: (settings: FeatureSettings) => void;
     formatCurrency: (amount: number | string) => string;
     t: typeof translations.en;
     themeClasses: ThemeClasses;
@@ -84,17 +106,39 @@ interface AppConfigContextType {
 
 const AppConfigContext = createContext<AppConfigContextType | undefined>(undefined);
 
+const defaultPrintSettings: PrintSettings = {
+    style: '1',
+    showLogo: true,
+    showDesc: true,
+    showHeader: true,
+    showImage: false,
+    isChallan: false,
+    showPrevDue: false,
+    showVoucherInfo: true,
+    priceOnly: false
+};
+
+const defaultFeatureSettings: FeatureSettings = {
+    vatEnabled: true,
+    warrantyEnabled: true,
+    discountEnabled: true
+};
+
 export const AppConfigProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [language, setLanguage] = useState<Language>('bn');
     const [theme, setTheme] = useState<Theme>('bkash');
     const [currency, setCurrency] = useState<string>('৳');
     const [decimalPoint, setDecimalPoint] = useState<number>(2);
+    const [printSettings, setPrintSettingsState] = useState<PrintSettings>(defaultPrintSettings);
+    const [featureSettings, setFeatureSettingsState] = useState<FeatureSettings>(defaultFeatureSettings);
 
     useEffect(() => {
         const savedLang = localStorage.getItem('app_lang') as Language;
         const savedTheme = localStorage.getItem('app_theme') as Theme;
         const savedCurrency = localStorage.getItem('app_currency');
         const savedDecimal = localStorage.getItem('app_decimal');
+        const savedPrintSettings = localStorage.getItem('app_print_settings');
+        const savedFeatureSettings = localStorage.getItem('app_feature_settings');
         
         if (savedLang) setLanguage(savedLang);
         if (savedTheme) setTheme(savedTheme);
@@ -102,6 +146,20 @@ export const AppConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (savedDecimal) {
             const parsed = parseInt(savedDecimal, 10);
             if (!isNaN(parsed)) setDecimalPoint(parsed);
+        }
+        if (savedPrintSettings) {
+            try {
+                setPrintSettingsState(JSON.parse(savedPrintSettings));
+            } catch (e) {
+                console.error("Failed to parse print settings", e);
+            }
+        }
+        if (savedFeatureSettings) {
+            try {
+                setFeatureSettingsState(JSON.parse(savedFeatureSettings));
+            } catch (e) {
+                console.error("Failed to parse feature settings", e);
+            }
         }
     }, []);
 
@@ -126,6 +184,16 @@ export const AppConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         localStorage.setItem('app_decimal', val.toString());
     };
 
+    const handleSetPrintSettings = (settings: PrintSettings) => {
+        setPrintSettingsState(settings);
+        localStorage.setItem('app_print_settings', JSON.stringify(settings));
+    };
+
+    const handleSetFeatureSettings = (settings: FeatureSettings) => {
+        setFeatureSettingsState(settings);
+        localStorage.setItem('app_feature_settings', JSON.stringify(settings));
+    };
+
     const formatCurrency = (amount: any) => {
         if (amount === null || amount === undefined || amount === '') return `${currency}0`;
         const num = typeof amount === 'string' ? parseFloat(amount) : amount;
@@ -139,6 +207,8 @@ export const AppConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             theme, setTheme: handleSetTheme, 
             currency, setCurrency: handleSetCurrency,
             decimalPoint, setDecimalPoint: handleSetDecimalPoint,
+            printSettings, setPrintSettings: handleSetPrintSettings,
+            featureSettings, setFeatureSettings: handleSetFeatureSettings,
             formatCurrency,
             t: translations[language], 
             themeClasses: themes[theme] 

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import PageHeader from '../../components/PageHeader';
-import { Search, Calendar, Download, FileText, Loader2, TrendingUp, User, ShoppingBag, DollarSign } from 'lucide-react';
+import { Search, Calendar, Download, FileText, Loader2, TrendingUp, User, ShoppingBag, DollarSign, Printer } from 'lucide-react';
 import { useAppConfig } from '../../context/AppConfigContext';
 import { databases, DB_ID, SALES_COLLECTION, Query } from '../../lib/appwrite';
+import PrintPreview from '../../components/PrintPreview';
 
 export default function SalesReports({ onBack, shop }: any) {
     const { t, themeClasses, formatCurrency } = useAppConfig();
@@ -10,6 +11,7 @@ export default function SalesReports({ onBack, shop }: any) {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [dateFilter, setDateFilter] = useState('');
+    const [selectedSale, setSelectedSale] = useState<any>(null);
 
     useEffect(() => {
         fetchSales();
@@ -46,6 +48,21 @@ export default function SalesReports({ onBack, shop }: any) {
 
     const totalSalesAmount = filteredSales.reduce((acc, s) => acc + (s.total_amount || 0), 0);
     const totalProfit = filteredSales.reduce((acc, s) => acc + (s.total_profit || 0), 0);
+
+    if (selectedSale) {
+        const printData = {
+            ...selectedSale,
+            items: typeof selectedSale.items === 'string' ? JSON.parse(selectedSale.items) : selectedSale.items
+        };
+        return (
+            <PrintPreview 
+                data={printData} 
+                shop={shop} 
+                onBack={() => setSelectedSale(null)} 
+                type="Sale" 
+            />
+        );
+    }
 
     return (
         <div className="h-screen bg-slate-50 flex flex-col">
@@ -114,9 +131,17 @@ export default function SalesReports({ onBack, shop }: any) {
                                         {new Date(sale.$createdAt).toLocaleString()} • ID: {sale.$id.slice(-6).toUpperCase()}
                                     </div>
                                 </div>
-                                <div className="text-right">
-                                    <div className="text-sm font-black text-slate-900">{formatCurrency(sale.total_amount)}</div>
-                                    <div className="text-[10px] font-bold text-emerald-600">Profit: {formatCurrency(sale.total_profit || 0)}</div>
+                                <div className="flex items-center gap-4">
+                                    <div className="text-right">
+                                        <div className="text-sm font-black text-slate-900">{formatCurrency(sale.total_amount)}</div>
+                                        <div className="text-[10px] font-bold text-emerald-600">Profit: {formatCurrency(sale.total_profit || 0)}</div>
+                                    </div>
+                                    <button 
+                                        onClick={() => setSelectedSale(sale)}
+                                        className="p-2 bg-slate-100 text-slate-600 rounded-xl hover:bg-blue-100 hover:text-blue-600 transition-colors"
+                                    >
+                                        <Printer className="h-5 w-5" />
+                                    </button>
                                 </div>
                             </div>
                         ))

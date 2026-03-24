@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import PageHeader from '../../components/PageHeader';
-import { Search, Calendar, Download, Loader2, ShoppingCart, User, Package, DollarSign } from 'lucide-react';
+import { Search, Calendar, Download, Loader2, ShoppingCart, User, Package, DollarSign, Printer } from 'lucide-react';
 import { useAppConfig } from '../../context/AppConfigContext';
 import { databases, DB_ID, PURCHASES_COLLECTION, Query } from '../../lib/appwrite';
+import PrintPreview from '../../components/PrintPreview';
 
 export default function PurchaseReports({ onBack, shop }: any) {
     const { t, themeClasses, formatCurrency } = useAppConfig();
     const [purchases, setPurchases] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [selectedPurchase, setSelectedPurchase] = useState<any>(null);
 
     useEffect(() => {
         fetchPurchases();
@@ -36,6 +38,21 @@ export default function PurchaseReports({ onBack, shop }: any) {
     );
 
     const totalPurchaseAmount = filteredPurchases.reduce((acc, p) => acc + (p.total_amount || 0), 0);
+
+    if (selectedPurchase) {
+        const printData = {
+            ...selectedPurchase,
+            items: typeof selectedPurchase.items === 'string' ? JSON.parse(selectedPurchase.items) : selectedPurchase.items
+        };
+        return (
+            <PrintPreview 
+                data={printData} 
+                shop={shop} 
+                onBack={() => setSelectedPurchase(null)} 
+                type="Purchase" 
+            />
+        );
+    }
 
     return (
         <div className="h-screen bg-slate-50 flex flex-col">
@@ -93,9 +110,17 @@ export default function PurchaseReports({ onBack, shop }: any) {
                                         {new Date(purchase.$createdAt).toLocaleString()} • ID: {purchase.$id.slice(-6).toUpperCase()}
                                     </div>
                                 </div>
-                                <div className="text-right">
-                                    <div className="text-sm font-black text-blue-600">{formatCurrency(purchase.total_amount)}</div>
-                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Paid</div>
+                                <div className="flex items-center gap-4">
+                                    <div className="text-right">
+                                        <div className="text-sm font-black text-blue-600">{formatCurrency(purchase.total_amount)}</div>
+                                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Paid</div>
+                                    </div>
+                                    <button 
+                                        onClick={() => setSelectedPurchase(purchase)}
+                                        className="p-2 bg-slate-100 text-slate-600 rounded-xl hover:bg-blue-100 hover:text-blue-600 transition-colors"
+                                    >
+                                        <Printer className="h-5 w-5" />
+                                    </button>
                                 </div>
                             </div>
                         ))

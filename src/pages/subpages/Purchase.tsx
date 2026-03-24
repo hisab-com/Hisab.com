@@ -14,14 +14,17 @@ interface CartItem {
     buyRate: number;
     sell_price: number;
     stock: number;
+    vat?: number;
+    warranty?: string;
+    discount?: number;
     [key: string]: any;
 }
 
 export default function Purchase({ onBack, shop }: any) {
-    const { t, themeClasses, formatCurrency } = useAppConfig();
+    const { t, themeClasses, formatCurrency, featureSettings } = useAppConfig();
     
     // Views: 'selection' | 'checkout' | 'receipt'
-    const [currentView, setCurrentView] = useState<'selection' | 'checkout' | 'receipt'>('selection');
+    const [currentView, setCurrentView] = useState<'selection' | 'checkout' | 'success' | 'receipt'>('selection');
     
     const [products, setProducts] = useState<any[]>([]);
     const [suppliers, setSuppliers] = useState<any[]>([]);
@@ -62,7 +65,10 @@ export default function Purchase({ onBack, shop }: any) {
                 unit: 'pcs',
                 is_wholesale: "false",
                 has_alert: "false",
-                has_expiry: "false"
+                has_expiry: "false",
+                vat: featureSettings.vatEnabled ? 0 : 0,
+                warranty: featureSettings.warrantyEnabled ? '' : '',
+                discount: featureSettings.discountEnabled ? 0 : 0
             };
             const newProduct = await databases.createDocument(DB_ID, PRODUCTS_COLLECTION, ID.unique(), productData);
             setProducts([newProduct, ...products]);
@@ -138,7 +144,10 @@ export default function Purchase({ onBack, shop }: any) {
                 newCart[product.$id] = { 
                     ...product, 
                     qty: 1, 
-                    buyRate: product.buy_price || 0
+                    buyRate: product.buy_price || 0,
+                    vat: product.vat || 0,
+                    warranty: product.warranty || '',
+                    discount: product.discount || 0
                 };
             }
             return newCart;
@@ -220,13 +229,13 @@ export default function Purchase({ onBack, shop }: any) {
                     product_name: item.name,
                     qty: item.qty, // Positive for addition
                     action: `Purchase (Inv: ${invoiceNo})`,
-                    date: new Date().toISOString()
+                    date: purchaseDate
                 });
             }
 
             // Set receipt and change view
             setReceiptData(purchaseData);
-            setCurrentView('receipt');
+            setCurrentView('success');
             setCart({});
             setInvoiceNo("PUR-" + Math.floor(100000 + Math.random() * 900000));
             setPaid('');
@@ -516,6 +525,40 @@ export default function Purchase({ onBack, shop }: any) {
                     >
                         {isProcessing ? <Loader2 className="h-6 w-6 animate-spin" /> : <><CheckCircle className="h-6 w-6 mr-2" /> Confirm Purchase</>}
                     </button>
+                </div>
+            </div>
+        );
+    }
+
+    // ==========================================
+    // RENDER SUCCESS VIEW
+    // ==========================================
+    if (currentView === 'success' && receiptData) {
+        return (
+            <div className="h-full flex flex-col bg-slate-50 animate-in fade-in zoom-in-95 duration-300">
+                <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+                    <div className="w-24 h-24 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-6 shadow-inner">
+                        <CheckCircle className="h-12 w-12" />
+                    </div>
+                    <h2 className="text-3xl font-black text-slate-800 mb-2">Purchase Successful!</h2>
+                    <p className="text-slate-500 mb-8 text-lg">Invoice: {receiptData.invoice_no}</p>
+                    
+                    <div className="w-full max-w-sm space-y-4">
+                        <button 
+                            onClick={() => setCurrentView('receipt')}
+                            className={`w-full py-4 rounded-2xl font-bold text-white shadow-lg shadow-indigo-200 transform transition-all active:scale-95 flex justify-center items-center ${themeClasses.bg} hover:opacity-90`}
+                        >
+                            <Printer className="h-6 w-6 mr-2" />
+                            Print Receipt
+                        </button>
+                        <button 
+                            onClick={() => setCurrentView('selection')}
+                            className="w-full py-4 bg-white border-2 border-slate-200 text-slate-700 rounded-2xl font-bold shadow-sm hover:bg-slate-50 active:scale-95 transition-all flex justify-center items-center"
+                        >
+                            <Plus className="h-6 w-6 mr-2" />
+                            New Purchase
+                        </button>
+                    </div>
                 </div>
             </div>
         );

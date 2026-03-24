@@ -1,22 +1,46 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Printer, ArrowLeft, Download, Eye, EyeOff } from 'lucide-react';
 import { useAppConfig } from '../context/AppConfigContext';
 
 export default function PrintPreview({ data, shop, onBack, type = 'Sale' }: any) {
-    const { t, themeClasses, formatCurrency } = useAppConfig();
+    const { t, themeClasses, formatCurrency, printSettings } = useAppConfig();
     
-    const [style, setStyle] = useState('1');
-    const [showLogo, setShowLogo] = useState(true);
-    const [showDesc, setShowDesc] = useState(true);
-    const [showHeader, setShowHeader] = useState(true);
-    const [showImage, setShowImage] = useState(false);
-    const [isChallan, setIsChallan] = useState(false);
-    const [showPrevDue, setShowPrevDue] = useState(false);
-    const [showVoucherInfo, setShowVoucherInfo] = useState(true);
-    const [priceOnly, setPriceOnly] = useState(false);
+    const [style, setStyle] = useState(printSettings.style || '1');
+    const [showLogo, setShowLogo] = useState(printSettings.showLogo ?? true);
+    const [showDesc, setShowDesc] = useState(printSettings.showDesc ?? true);
+    const [showHeader, setShowHeader] = useState(printSettings.showHeader ?? true);
+    const [showImage, setShowImage] = useState(printSettings.showImage ?? false);
+    const [isChallan, setIsChallan] = useState(printSettings.isChallan ?? false);
+    const [showPrevDue, setShowPrevDue] = useState(printSettings.showPrevDue ?? false);
+    const [showVoucherInfo, setShowVoucherInfo] = useState(printSettings.showVoucherInfo ?? true);
+    const [priceOnly, setPriceOnly] = useState(printSettings.priceOnly ?? false);
 
     const isPOS = style === 'POS' || style === 'Token';
     const isToken = style === 'Token';
+
+    const [scale, setScale] = useState(1);
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const updateScale = () => {
+            if (containerRef.current) {
+                const containerWidth = containerRef.current.offsetWidth;
+                // 210mm is approx 794px, 80mm is approx 302px
+                const targetWidth = isPOS ? 302 : 794;
+                const availableWidth = containerWidth - 32; // 16px padding on each side
+                
+                if (availableWidth < targetWidth) {
+                    setScale(availableWidth / targetWidth);
+                } else {
+                    setScale(1);
+                }
+            }
+        };
+
+        updateScale();
+        window.addEventListener('resize', updateScale);
+        return () => window.removeEventListener('resize', updateScale);
+    }, [isPOS, style]);
 
     const handlePrint = () => {
         window.print();
@@ -127,8 +151,11 @@ export default function PrintPreview({ data, shop, onBack, type = 'Sale' }: any)
             </div>
 
             {/* Preview Area */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-8 flex justify-center bg-slate-100 dark:bg-slate-900">
-                <div className={`print-container bg-white text-black shadow-2xl relative ${isPOS ? 'w-[80mm] p-4' : 'w-[210mm] min-h-[297mm] p-10'}`}>
+            <div ref={containerRef} className="flex-1 overflow-y-auto p-4 sm:p-8 flex justify-center bg-slate-100 dark:bg-slate-900">
+                <div 
+                    style={{ transform: `scale(${scale})`, transformOrigin: 'top center' }}
+                    className={`print-container bg-white text-black shadow-2xl relative ${isPOS ? 'w-[80mm] p-4' : 'w-[210mm] min-h-[297mm] p-10'}`}
+                >
                     
                     {/* Watermark (Optional based on style) */}
                     {style === '1' && shop?.name && (
@@ -373,7 +400,6 @@ export default function PrintPreview({ data, shop, onBack, type = 'Sale' }: any)
                     {isPOS && (
                         <div className="text-center text-xs mt-6 pt-2 border-t border-dashed border-slate-400">
                             <p>Thank you for shopping!</p>
-                            <p className="mt-1 text-[10px] text-slate-500">Software by AvoyLenden</p>
                         </div>
                     )}
 

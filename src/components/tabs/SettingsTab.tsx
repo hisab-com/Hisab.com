@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { useAppConfig } from '../../context/AppConfigContext';
-import { Store, User, Globe, Palette, LogOut, Shield, ChevronRight, Plus, Check, DollarSign, Hash, X, Upload, Loader2, MapPin, Cloud, Tag, Lock, Mail, Phone, Camera, DoorOpen } from 'lucide-react';
+import { Store, User, Globe, Palette, LogOut, Shield, ChevronRight, Plus, Check, DollarSign, Hash, X, Upload, Loader2, MapPin, Cloud, Tag, Lock, Mail, Phone, Camera, DoorOpen, Printer } from 'lucide-react';
 import { databases, DB_ID, SHOPS_COLLECTION, account } from '../../lib/appwrite';
 import { uploadToCloudinary } from '../../utils/cloudinary';
 
 export default function SettingsTab({ 
     user, shops, currentShop, setCurrentShop, setShowCreateShop, logout, onNavigate 
 }: any) {
-    const { t, themeClasses, language, setLanguage, theme, setTheme, currency, setCurrency, decimalPoint, setDecimalPoint } = useAppConfig();
+    const { t, themeClasses, language, setLanguage, theme, setTheme, currency, setCurrency, decimalPoint, setDecimalPoint, printSettings, setPrintSettings } = useAppConfig();
 
     // Shop Profile State
     const [showShopProfile, setShowShopProfile] = useState(false);
@@ -27,6 +27,20 @@ export default function SettingsTab({
     const [editUserOldPassword, setEditUserOldPassword] = useState('');
     const [editUserAvatar, setEditUserAvatar] = useState<File | null>(null);
     const [isUpdatingUser, setIsUpdatingUser] = useState(false);
+
+    // Print Settings State
+    const [showPrintSettings, setShowPrintSettings] = useState(false);
+    const [tempPrintSettings, setTempPrintSettings] = useState(printSettings);
+
+    const openPrintSettings = () => {
+        setTempPrintSettings(printSettings);
+        setShowPrintSettings(true);
+    };
+
+    const savePrintSettings = () => {
+        setPrintSettings(tempPrintSettings);
+        setShowPrintSettings(false);
+    };
 
     const openShopProfile = () => {
         setEditShopName(currentShop?.name || '');
@@ -336,6 +350,15 @@ export default function SettingsTab({
                         <button onClick={() => setDecimalPoint(2)} className={`px-3 py-1.5 text-sm font-bold rounded-lg transition-all ${decimalPoint === 2 ? 'bg-white shadow text-slate-900' : 'text-slate-500'}`}>.00</button>
                     </div>
                 </div>
+                <div className="p-5 flex items-center justify-between">
+                    <div className="flex items-center">
+                        <Printer className="h-5 w-5 mr-3 text-slate-500" />
+                        <span className="font-medium text-slate-700">{t.printSettings || 'Print Settings'}</span>
+                    </div>
+                    <button onClick={openPrintSettings} className="px-4 py-1.5 text-sm font-bold rounded-lg transition-all bg-slate-100 text-slate-700 hover:bg-slate-200">
+                        {t.configure || 'Configure'}
+                    </button>
+                </div>
             </div>
 
             {/* Leave Shop */}
@@ -354,6 +377,80 @@ export default function SettingsTab({
             <button onClick={logout} className="w-full flex items-center justify-center p-4 bg-white border border-red-100 text-red-600 rounded-3xl font-bold shadow-sm hover:bg-red-50 active:scale-95 transition-all">
                 <LogOut className="h-5 w-5 mr-2" /> {t.logout}
             </button>
+
+            {/* --- Print Settings Modal --- */}
+            {showPrintSettings && (
+                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/60 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] animate-in slide-in-from-bottom-10 sm:slide-in-from-bottom-0 sm:zoom-in-95">
+                        <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0 z-10">
+                            <h3 className="text-xl font-extrabold text-slate-800 flex items-center">
+                                <Printer className={`h-6 w-6 mr-2 ${themeClasses.primaryText}`} /> {t.printSettings || 'Print Settings'}
+                            </h3>
+                            <button onClick={() => setShowPrintSettings(false)} className="h-8 w-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors">
+                                <X className="h-5 w-5" />
+                            </button>
+                        </div>
+                        <div className="p-6 overflow-y-auto custom-scrollbar space-y-5">
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-2">{t.style || 'Style'}</label>
+                                <select 
+                                    value={tempPrintSettings.style} 
+                                    onChange={(e) => setTempPrintSettings({...tempPrintSettings, style: e.target.value})}
+                                    className="w-full bg-slate-50 border border-slate-200 text-slate-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-slate-200"
+                                >
+                                    {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'POS', '11', 'Token'].map(s => (
+                                        <option key={s} value={s}>{s === 'POS' ? t.pos || 'POS' : s === 'Token' ? t.token || 'Token' : `${t.style || 'Style'} ${s}`}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            
+                            <div className="space-y-3">
+                                <label className="flex items-center space-x-3 p-3 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors">
+                                    <input type="checkbox" checked={tempPrintSettings.showLogo} onChange={(e) => setTempPrintSettings({...tempPrintSettings, showLogo: e.target.checked})} className="h-5 w-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                                    <span className="font-medium text-slate-700">{t.logo || 'Logo'}</span>
+                                </label>
+                                <label className="flex items-center space-x-3 p-3 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors">
+                                    <input type="checkbox" checked={tempPrintSettings.showDesc} onChange={(e) => setTempPrintSettings({...tempPrintSettings, showDesc: e.target.checked})} className="h-5 w-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                                    <span className="font-medium text-slate-700">{t.description || 'Description'}</span>
+                                </label>
+                                <label className="flex items-center space-x-3 p-3 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors">
+                                    <input type="checkbox" checked={tempPrintSettings.showHeader} onChange={(e) => setTempPrintSettings({...tempPrintSettings, showHeader: e.target.checked})} className="h-5 w-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                                    <span className="font-medium text-slate-700">{t.header || 'Header'}</span>
+                                </label>
+                                <label className="flex items-center space-x-3 p-3 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors">
+                                    <input type="checkbox" checked={tempPrintSettings.showImage} onChange={(e) => setTempPrintSettings({...tempPrintSettings, showImage: e.target.checked})} className="h-5 w-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                                    <span className="font-medium text-slate-700">{t.productImage || 'Product Image'}</span>
+                                </label>
+                                <label className="flex items-center space-x-3 p-3 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors">
+                                    <input type="checkbox" checked={tempPrintSettings.isChallan} onChange={(e) => setTempPrintSettings({...tempPrintSettings, isChallan: e.target.checked})} className="h-5 w-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                                    <span className="font-medium text-slate-700">{t.challanView || 'Challan View'}</span>
+                                </label>
+                                <label className="flex items-center space-x-3 p-3 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors">
+                                    <input type="checkbox" checked={tempPrintSettings.showPrevDue} onChange={(e) => setTempPrintSettings({...tempPrintSettings, showPrevDue: e.target.checked})} className="h-5 w-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                                    <span className="font-medium text-slate-700">{t.previousDue || 'Previous Due'}</span>
+                                </label>
+                                <label className="flex items-center space-x-3 p-3 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors">
+                                    <input type="checkbox" checked={tempPrintSettings.showVoucherInfo} onChange={(e) => setTempPrintSettings({...tempPrintSettings, showVoucherInfo: e.target.checked})} className="h-5 w-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                                    <span className="font-medium text-slate-700">{t.voucherInfo || 'Voucher Info'}</span>
+                                </label>
+                                <label className="flex items-center space-x-3 p-3 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors">
+                                    <input type="checkbox" checked={tempPrintSettings.priceOnly} onChange={(e) => setTempPrintSettings({...tempPrintSettings, priceOnly: e.target.checked})} className="h-5 w-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                                    <span className="font-medium text-slate-700">{t.priceOnly || 'Price Only'}</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div className="p-6 border-t border-slate-100 bg-slate-50">
+                            <button 
+                                onClick={savePrintSettings}
+                                className={`w-full py-3.5 rounded-2xl font-bold text-white shadow-lg shadow-indigo-200 transform transition-all active:scale-95 flex justify-center items-center ${themeClasses.bg} hover:opacity-90`}
+                            >
+                                <Check className="h-5 w-5 mr-2" />
+                                {t.update || 'Update'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* --- Shop Profile Modal --- */}
             {showShopProfile && (

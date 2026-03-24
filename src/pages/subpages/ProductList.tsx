@@ -7,7 +7,7 @@ import { uploadToCloudinary } from '../../utils/cloudinary';
 import { Html5Qrcode } from 'html5-qrcode';
 
 export default function ProductList({ onBack, shop }: any) {
-    const { t, themeClasses, formatCurrency } = useAppConfig();
+    const { t, themeClasses, formatCurrency, featureSettings } = useAppConfig();
     
     const [products, setProducts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -38,6 +38,19 @@ export default function ProductList({ onBack, shop }: any) {
     const [pAlertQty, setPAlertQty] = useState('5');
     const [hasExpiry, setHasExpiry] = useState(false);
     const [pExpireDate, setPExpireDate] = useState('');
+    
+    const [hasVat, setHasVat] = useState(false);
+    const [hasWarranty, setHasWarranty] = useState(false);
+    const [hasDiscount, setHasDiscount] = useState(false);
+    
+    const [pVat, setPVat] = useState('');
+    const [pVatType, setPVatType] = useState('percent');
+    
+    const [pWarrantyValue, setPWarrantyValue] = useState('');
+    const [pWarrantyUnit, setPWarrantyUnit] = useState('year');
+    
+    const [pDiscount, setPDiscount] = useState('');
+    const [pDiscountType, setPDiscountType] = useState('percent');
 
     const [isSaving, setIsSaving] = useState(false);
 
@@ -120,7 +133,13 @@ export default function ProductList({ onBack, shop }: any) {
                 has_alert: hasAlert ? "true" : "false",
                 alert_qty: hasAlert ? (Number(pAlertQty) || 0) : 5,
                 has_expiry: hasExpiry ? "true" : "false",
-                expire_date: hasExpiry ? pExpireDate : ''
+                expire_date: hasExpiry ? pExpireDate : '',
+                vat: (featureSettings.vatEnabled && hasVat) ? Number(pVat) : 0,
+                vat_type: (featureSettings.vatEnabled && hasVat) ? pVatType : 'percent',
+                warranty_value: (featureSettings.warrantyEnabled && hasWarranty) ? pWarrantyValue : '',
+                warranty_unit: (featureSettings.warrantyEnabled && hasWarranty) ? pWarrantyUnit : 'year',
+                discount: (featureSettings.discountEnabled && hasDiscount) ? Number(pDiscount) : 0,
+                discount_type: (featureSettings.discountEnabled && hasDiscount) ? pDiscountType : 'percent'
             };
 
             if (editProductId) {
@@ -179,6 +198,15 @@ export default function ProductList({ onBack, shop }: any) {
             setPAlertQty('5');
             setHasExpiry(false);
             setPExpireDate('');
+            setHasVat(false);
+            setPVat('');
+            setPVatType('percent');
+            setHasWarranty(false);
+            setPWarrantyValue('');
+            setPWarrantyUnit('year');
+            setHasDiscount(false);
+            setPDiscount('');
+            setPDiscountType('percent');
         } else if (product) {
             setEditProductId(product.$id);
             setPName(product.name);
@@ -196,6 +224,15 @@ export default function ProductList({ onBack, shop }: any) {
             setPAlertQty(product.alert_qty?.toString() || '5');
             setHasExpiry(product.has_expiry === true || product.has_expiry === 'true');
             setPExpireDate(product.expire_date || '');
+            setHasVat(!!product.vat && product.vat > 0);
+            setPVat(product.vat?.toString() || '');
+            setPVatType(product.vat_type || 'percent');
+            setHasWarranty(!!product.warranty_value);
+            setPWarrantyValue(product.warranty_value || '');
+            setPWarrantyUnit(product.warranty_unit || 'year');
+            setHasDiscount(!!product.discount && product.discount > 0);
+            setPDiscount(product.discount?.toString() || '');
+            setPDiscountType(product.discount_type || 'percent');
         }
         setShowProductModal(true);
         setActiveMenu(null);
@@ -372,20 +409,6 @@ export default function ProductList({ onBack, shop }: any) {
                 />
                 
                 <div className="p-4 bg-white border-b border-slate-200 shadow-sm z-10">
-                    <div className="grid grid-cols-3 gap-3 mb-4">
-                        <div className="bg-slate-50 p-2.5 rounded-2xl border border-slate-100 flex flex-col items-center justify-center">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Total Items</span>
-                            <span className="text-sm font-black text-slate-800">{products.length}</span>
-                        </div>
-                        <div className="bg-emerald-50 p-2.5 rounded-2xl border border-emerald-100 flex flex-col items-center justify-center">
-                            <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-0.5">Stock Value</span>
-                            <span className="text-sm font-black text-emerald-700">{formatCurrency(totalValue)}</span>
-                        </div>
-                        <div className="bg-orange-50 p-2.5 rounded-2xl border border-orange-100 flex flex-col items-center justify-center">
-                            <span className="text-[10px] font-bold text-orange-600 uppercase tracking-wider mb-0.5">Low Stock</span>
-                            <span className="text-sm font-black text-orange-700">{products.filter(p => (p.has_alert === true || p.has_alert === 'true') && p.stock <= p.alert_qty).length}</span>
-                        </div>
-                    </div>
                     <div className="flex space-x-3">
                         <div className="relative flex-1 group">
                             <Search className={`absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:${themeClasses.primaryText.split(' ')[0]} transition-colors`} />
@@ -612,6 +635,68 @@ export default function ProductList({ onBack, shop }: any) {
                                                     <input type="date" value={pExpireDate} onChange={e => setPExpireDate(e.target.value)} className="mt-4 w-full px-4 py-3 bg-white border border-red-200 rounded-xl font-medium outline-none focus:border-red-500 focus:ring-4 focus:ring-red-50" />
                                                 )}
                                             </div>
+
+                                            {featureSettings.vatEnabled && (
+                                                <div className={`border rounded-2xl p-4 transition-colors ${hasVat ? 'bg-blue-50 border-blue-200' : 'bg-white border-slate-200'}`}>
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-sm font-bold text-slate-700 flex items-center"><span className="h-5 w-5 mr-3 flex items-center justify-center text-blue-500 font-bold">৳</span> VAT</span>
+                                                        <label className="relative inline-flex items-center cursor-pointer">
+                                                            <input type="checkbox" className="sr-only peer" checked={hasVat} onChange={e => setHasVat(e.target.checked)} />
+                                                            <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-500 shadow-inner"></div>
+                                                        </label>
+                                                    </div>
+                                                    {hasVat && (
+                                                        <div className="mt-4 flex gap-2">
+                                                            <input type="number" step="any" value={pVat} onChange={e => setPVat(e.target.value)} className="flex-1 px-4 py-3 bg-white border border-blue-200 rounded-xl font-medium outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50" placeholder="Value" />
+                                                            <select value={pVatType} onChange={e => setPVatType(e.target.value)} className="px-4 py-3 bg-white border border-blue-200 rounded-xl font-medium outline-none focus:border-blue-500">
+                                                                <option value="percent">%</option>
+                                                                <option value="amount">টাকা</option>
+                                                            </select>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                            {featureSettings.warrantyEnabled && (
+                                                <div className={`border rounded-2xl p-4 transition-colors ${hasWarranty ? 'bg-purple-50 border-purple-200' : 'bg-white border-slate-200'}`}>
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-sm font-bold text-slate-700 flex items-center"><span className="h-5 w-5 mr-3 flex items-center justify-center text-purple-500 font-bold">🛡️</span> Warranty</span>
+                                                        <label className="relative inline-flex items-center cursor-pointer">
+                                                            <input type="checkbox" className="sr-only peer" checked={hasWarranty} onChange={e => setHasWarranty(e.target.checked)} />
+                                                            <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-500 shadow-inner"></div>
+                                                        </label>
+                                                    </div>
+                                                    {hasWarranty && (
+                                                        <div className="mt-4 flex gap-2">
+                                                            <input type="number" value={pWarrantyValue} onChange={e => setPWarrantyValue(e.target.value)} className="flex-1 px-4 py-3 bg-white border border-purple-200 rounded-xl font-medium outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-50" placeholder="Value" />
+                                                            <select value={pWarrantyUnit} onChange={e => setPWarrantyUnit(e.target.value)} className="px-4 py-3 bg-white border border-purple-200 rounded-xl font-medium outline-none focus:border-purple-500">
+                                                                <option value="year">বছর</option>
+                                                                <option value="month">মাস</option>
+                                                                <option value="week">সপ্তাহ</option>
+                                                            </select>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                            {featureSettings.discountEnabled && (
+                                                <div className={`border rounded-2xl p-4 transition-colors ${hasDiscount ? 'bg-green-50 border-green-200' : 'bg-white border-slate-200'}`}>
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-sm font-bold text-slate-700 flex items-center"><span className="h-5 w-5 mr-3 flex items-center justify-center text-green-500 font-bold">%</span> Discount</span>
+                                                        <label className="relative inline-flex items-center cursor-pointer">
+                                                            <input type="checkbox" className="sr-only peer" checked={hasDiscount} onChange={e => setHasDiscount(e.target.checked)} />
+                                                            <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500 shadow-inner"></div>
+                                                        </label>
+                                                    </div>
+                                                    {hasDiscount && (
+                                                        <div className="mt-4 flex gap-2">
+                                                            <input type="number" step="any" value={pDiscount} onChange={e => setPDiscount(e.target.value)} className="flex-1 px-4 py-3 bg-white border border-green-200 rounded-xl font-medium outline-none focus:border-green-500 focus:ring-4 focus:ring-green-50" placeholder="Value" />
+                                                            <select value={pDiscountType} onChange={e => setPDiscountType(e.target.value)} className="px-4 py-3 bg-white border border-green-200 rounded-xl font-medium outline-none focus:border-green-500">
+                                                                <option value="percent">%</option>
+                                                                <option value="amount">টাকা</option>
+                                                            </select>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>

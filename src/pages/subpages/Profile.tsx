@@ -6,8 +6,8 @@ import { databases, DB_ID, USERS_COLLECTION, Query, account } from '../../lib/ap
 import PageHeader from '../../components/PageHeader';
 import { uploadToCloudinary, DEFAULT_CLOUDINARY } from '../../utils/cloudinary';
 
-export default function Profile({ onBack, userId }: { onBack: () => void, userId?: string }) {
-    const { t, themeClasses, currentShop } = useAppConfig();
+export default function Profile({ onBack, userId, currentShop }: { onBack: () => void, userId?: string, currentShop?: any }) {
+    const { t, themeClasses } = useAppConfig();
     const { user: currentUser, checkAuth } = useAuth();
     const [profile, setProfile] = useState<any>(null);
     const [loading, setLoading] = useState(true);

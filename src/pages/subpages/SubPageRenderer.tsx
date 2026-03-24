@@ -38,7 +38,7 @@ export default function SubPageRenderer({ view, onBack, shop, setShops, shops, s
         case 'community':
             return <Community onBack={onBack} shop={shop} />;
         case 'profile':
-            return <Profile onBack={onBack} />;
+            return <Profile onBack={onBack} currentShop={shop} />;
         case 'salesReports':
         case 'sales-reports':
             return <SalesReports onBack={onBack} shop={shop} />;

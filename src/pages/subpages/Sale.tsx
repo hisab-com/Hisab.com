@@ -4,8 +4,6 @@ import { Search, Barcode, ArrowRight, ArrowLeft, Plus, Minus, Trash2, CheckCircl
 import { useAppConfig } from '../../context/AppConfigContext';
 import { databases, DB_ID, PRODUCTS_COLLECTION, CONTACTS_COLLECTION, SALES_COLLECTION, ID, Query } from '../../lib/appwrite';
 import { Html5Qrcode } from 'html5-qrcode';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
 
 interface CartItem {
     $id: string;
@@ -42,13 +40,11 @@ export default function Sale({ onBack, shop }: any) {
     const [paymentMethod, setPaymentMethod] = useState('Cash');
     
     const [isProcessing, setIsProcessing] = useState(false);
-    const [isPrinting, setIsPrinting] = useState(false);
     const [receiptData, setReceiptData] = useState<any>(null);
 
     // Scanner
     const [showScannerModal, setShowScannerModal] = useState(false);
     const scannerRef = useRef<Html5Qrcode | null>(null);
-    const receiptRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         fetchInitialData();
@@ -238,34 +234,6 @@ export default function Sale({ onBack, shop }: any) {
             }).catch(() => setShowScannerModal(false));
         } else {
             setShowScannerModal(false);
-        }
-    };
-
-    const handleDownloadReceiptPDF = async () => {
-        if (!receiptRef.current) return;
-        setIsPrinting(true);
-        try {
-            const element = receiptRef.current;
-            const canvas = await html2canvas(element, {
-                scale: 2,
-                useCORS: true,
-                logging: false,
-                backgroundColor: '#ffffff'
-            });
-            
-            const imgData = canvas.toDataURL('image/png');
-            const pdf = new jsPDF('p', 'mm', [80, 200]); // Typical receipt size
-            const imgProps = pdf.getImageProperties(imgData);
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-            
-            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-            pdf.save(`Receipt_${receiptData.invoice_no}.pdf`);
-        } catch (error) {
-            console.error('PDF Generation Error:', error);
-            window.print();
-        } finally {
-            setIsPrinting(false);
         }
     };
 
@@ -524,7 +492,7 @@ export default function Sale({ onBack, shop }: any) {
                 `}} />
 
                 <div className="flex-1 overflow-y-auto p-4 flex justify-center">
-                    <div ref={receiptRef} id="printable-receipt" className="bg-white w-full max-w-md p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <div id="printable-receipt" className="bg-white w-full max-w-md p-6 rounded-2xl shadow-sm border border-slate-200">
                         <div className="text-center mb-6 border-b border-dashed border-slate-300 pb-6">
                             <h2 className="text-2xl font-black text-slate-800">{shop.name}</h2>
                             <p className="text-xs font-bold text-slate-500 tracking-widest mt-1">CASH MEMO / INVOICE</p>
@@ -602,8 +570,8 @@ export default function Sale({ onBack, shop }: any) {
                 </div>
 
                 <div className="no-print p-4 bg-white border-t border-slate-200 flex gap-3 shadow-[0_-10px_20px_rgba(0,0,0,0.05)]">
-                    <button onClick={handleDownloadReceiptPDF} disabled={isPrinting} className="flex-1 py-4 bg-slate-800 text-white rounded-2xl font-bold text-lg hover:bg-slate-700 active:scale-95 transition-all flex justify-center items-center disabled:opacity-50">
-                        {isPrinting ? <Loader2 className="h-6 w-6 animate-spin" /> : <><Printer className="mr-2 h-5 w-5" /> Print Receipt</>}
+                    <button onClick={() => window.print()} className="flex-1 py-4 bg-slate-800 text-white rounded-2xl font-bold text-lg hover:bg-slate-700 active:scale-95 transition-all flex justify-center items-center">
+                        <Printer className="mr-2 h-5 w-5" /> Print Receipt
                     </button>
                     <button onClick={() => setCurrentView('selection')} className={`flex-1 py-4 ${themeClasses.primaryBg} text-white rounded-2xl font-bold text-lg hover:opacity-90 active:scale-95 transition-all flex justify-center items-center`}>
                         <ShoppingCart className="mr-2 h-5 w-5" /> New Sale

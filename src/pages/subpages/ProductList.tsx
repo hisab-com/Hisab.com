@@ -278,18 +278,18 @@ export default function ProductList({ onBack, shop }: any) {
 
     // --- ডিরেক্ট নেটিভ প্রিন্ট ফাংশন ---
     const handleNativePrint = () => {
+        console.log("Printing all products...");
         window.print();
     };
 
     // প্রিন্ট পেজের জন্য টোটাল ক্যালকুলেশন
-    const totalValue = products.reduce((acc, curr) => acc + (curr.stock * curr.sell_price), 0);
-    const totalQty = products.reduce((acc, curr) => acc + Number(curr.stock), 0);
+    const totalValue = Array.isArray(products) ? products.reduce((acc, curr) => acc + (Number(curr.stock || 0) * Number(curr.sell_price || 0)), 0) : 0;
+    const totalQty = Array.isArray(products) ? products.reduce((acc, curr) => acc + Number(curr.stock || 0), 0) : 0;
 
     return (
         <React.Fragment>
             {/* --- প্রিন্ট স্টাইল (শুধুমাত্র প্রিন্ট করার সময় কাজ করবে) --- */}
-            <style>
-                {`
+            <style dangerouslySetInnerHTML={{ __html: `
                 @media print {
                     @page { margin: 10mm; size: A4 portrait; }
                     body { background-color: white !important; margin: 0; padding: 0; }
@@ -309,8 +309,7 @@ export default function ProductList({ onBack, shop }: any) {
                     
                     .print-summary { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 15px; font-size: 14px; border-bottom: 1px solid #000; padding-bottom: 5px; }
                 }
-                `}
-            </style>
+            `}} />
 
             {/* =========================================
                 MAIN APP UI (HIDDEN DURING PRINT)

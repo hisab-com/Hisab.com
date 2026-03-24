@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import PageHeader from '../../components/PageHeader';
-import { Plus, Package, Edit, Trash2, Search, Barcode, MoreVertical, Layers, FileText, X, Upload, Loader2, AlertTriangle, Calendar, Tag, Minus, Image as ImageIcon, CheckCircle2 } from 'lucide-react';
+import { Plus, Package, Edit, Trash2, Search, Barcode, MoreVertical, Layers, FileText, X, Upload, Loader2, AlertTriangle, Calendar, Tag, Minus, Image as ImageIcon, CheckCircle2, Printer } from 'lucide-react';
 import { useAppConfig } from '../../context/AppConfigContext';
 import { databases, DB_ID, PRODUCTS_COLLECTION, STOCK_HISTORY_COLLECTION, ID, Query } from '../../lib/appwrite';
 import { uploadToCloudinary } from '../../utils/cloudinary';
@@ -282,8 +282,8 @@ export default function ProductList({ onBack, shop }: any) {
     };
 
     // প্রিন্ট পেজের জন্য টোটাল ক্যালকুলেশন
-    const totalValue = filteredProducts.reduce((acc, curr) => acc + (curr.stock * curr.sell_price), 0);
-    const totalQty = filteredProducts.reduce((acc, curr) => acc + Number(curr.stock), 0);
+    const totalValue = products.reduce((acc, curr) => acc + (curr.stock * curr.sell_price), 0);
+    const totalQty = products.reduce((acc, curr) => acc + Number(curr.stock), 0);
 
     return (
         <React.Fragment>
@@ -323,7 +323,7 @@ export default function ProductList({ onBack, shop }: any) {
                         <div className="flex space-x-2">
                             {/* Native Print Button */}
                             <button onClick={handleNativePrint} className="p-2 bg-white/20 text-white rounded-xl hover:bg-white/30 transition-colors shadow-sm active:scale-95 flex items-center justify-center">
-                                <FileText className="h-5 w-5" />
+                                <Printer className="h-5 w-5" />
                             </button>
                             
                             {/* Add Button */}
@@ -650,7 +650,7 @@ export default function ProductList({ onBack, shop }: any) {
                         </tr>
                     </thead>
                     <tbody>
-                        {filteredProducts.map((p, index) => {
+                        {products.map((p, index) => {
                             const val = p.stock * p.sell_price;
                             return (
                                 <tr key={p.$id}>

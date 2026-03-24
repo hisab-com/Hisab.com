@@ -1,9 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
 import PageHeader from '../../components/PageHeader';
-import { Search, Barcode, ArrowRight, ArrowLeft, Plus, Minus, Trash2, CheckCircle, Printer, ShoppingCart, User, Package } from 'lucide-react';
+import { Search, Barcode, ArrowRight, ArrowLeft, Plus, Minus, Trash2, CheckCircle, Printer, ShoppingCart, User, Package, Loader2 } from 'lucide-react';
 import { useAppConfig } from '../../context/AppConfigContext';
 import { databases, DB_ID, PRODUCTS_COLLECTION, CONTACTS_COLLECTION, SALES_COLLECTION, ID, Query } from '../../lib/appwrite';
 import { Html5Qrcode } from 'html5-qrcode';
+
+interface CartItem {
+    $id: string;
+    name: string;
+    brand?: string;
+    qty: number;
+    sellRate: number;
+    buy_price: number;
+    stock: number;
+    [key: string]: any;
+}
 
 export default function Sale({ onBack, shop }: any) {
     const { t, themeClasses, formatCurrency } = useAppConfig();
@@ -17,7 +28,7 @@ export default function Sale({ onBack, shop }: any) {
     const [searchTerm, setSearchTerm] = useState('');
     
     // Cart State: { productId: { ...product, qty, sellRate } }
-    const [cart, setCart] = useState<Record<string, any>>({});
+    const [cart, setCart] = useState<Record<string, CartItem>>({});
     
     // Checkout State
     const [invoiceNo, setInvoiceNo] = useState('');
@@ -100,7 +111,7 @@ export default function Sale({ onBack, shop }: any) {
     };
 
     // --- Checkout Logic ---
-    const cartItems = Object.values(cart);
+    const cartItems = Object.values(cart) as CartItem[];
     const subtotal = cartItems.reduce((sum, item) => sum + (item.qty * item.sellRate), 0);
     const discountAmt = Number(discount) || 0;
     const grandTotal = subtotal - discountAmt;

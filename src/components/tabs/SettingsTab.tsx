@@ -298,7 +298,7 @@ export default function SettingsTab({
                         <option value="₹">₹ (INR)</option>
                         <option value="€">€ (EUR)</option>
                         <option value="£">£ (GBP)</option>
-                        <option value="ر.س">ر.س (SAR)</option>
+                        <option value="ر.স">ر.স (SAR)</option>
                         <option value="د.إ">د.إ (AED)</option>
                         <option value="RM">RM (MYR)</option>
                         <option value="S$">S$ (SGD)</option>

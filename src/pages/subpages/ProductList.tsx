@@ -5,6 +5,8 @@ import { useAppConfig } from '../../context/AppConfigContext';
 import { databases, DB_ID, PRODUCTS_COLLECTION, STOCK_HISTORY_COLLECTION, ID, Query } from '../../lib/appwrite';
 import { uploadToCloudinary } from '../../utils/cloudinary';
 import { Html5Qrcode } from 'html5-qrcode';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 export default function ProductList({ onBack, shop }: any) {
     const { t, themeClasses, formatCurrency } = useAppConfig();
@@ -48,6 +50,8 @@ export default function ProductList({ onBack, shop }: any) {
 
     // Scanner State
     const [scanTarget, setScanTarget] = useState<'search' | 'input'>('search');
+    const [isPrinting, setIsPrinting] = useState(false);
+    const printRef = useRef<HTMLDivElement>(null);
     const scannerRef = useRef<Html5Qrcode | null>(null);
 
     // Dropdown State
@@ -277,8 +281,39 @@ export default function ProductList({ onBack, shop }: any) {
     };
 
     // --- ডিরেক্ট নেটিভ প্রিন্ট ফাংশন ---
-    const handleNativePrint = () => {
-        window.print();
+    const handleNativePrint = async () => {
+        if (!printRef.current) return;
+        setIsPrinting(true);
+        try {
+            const element = printRef.current;
+            element.classList.remove('hidden');
+            element.classList.remove('print-only');
+            
+            const canvas = await html2canvas(element, {
+                scale: 2,
+                useCORS: true,
+                logging: false,
+                backgroundColor: '#ffffff'
+            });
+            
+            element.classList.add('hidden');
+            element.classList.add('print-only');
+            
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const imgProps = pdf.getImageProperties(imgData);
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+            
+            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+            pdf.save(`${shop.name || 'Inventory'}_Report_${new Date().toLocaleDateString()}.pdf`);
+        } catch (error) {
+            console.error('PDF Generation Error:', error);
+            // Fallback to native print if PDF fails
+            window.print();
+        } finally {
+            setIsPrinting(false);
+        }
     };
 
     // প্রিন্ট পেজের জন্য টোটাল ক্যালকুলেশন
@@ -322,8 +357,8 @@ export default function ProductList({ onBack, shop }: any) {
                     rightContent={
                         <div className="flex space-x-2">
                             {/* Native Print Button */}
-                            <button onClick={handleNativePrint} className="p-2 bg-white/20 text-white rounded-xl hover:bg-white/30 transition-colors shadow-sm active:scale-95 flex items-center justify-center">
-                                <FileText className="h-5 w-5" />
+                            <button onClick={handleNativePrint} disabled={isPrinting} className="p-2 bg-white/20 text-white rounded-xl hover:bg-white/30 transition-colors shadow-sm active:scale-95 flex items-center justify-center disabled:opacity-50">
+                                {isPrinting ? <Loader2 className="h-5 w-5 animate-spin" /> : <FileText className="h-5 w-5" />}
                             </button>
                             
                             {/* Add Button */}
@@ -627,7 +662,7 @@ export default function ProductList({ onBack, shop }: any) {
             {/* =========================================
                 PRINT ONLY UI (VISIBLE ONLY WHEN PRINTING)
                 ========================================= */}
-            <div className="hidden print-only w-full bg-white text-black p-4">
+            <div ref={printRef} className="hidden print-only w-full bg-white text-black p-4">
                 <div className="print-header">
                     <h2>{shop?.name}</h2>
                     <p>{t.inventoryReport || "Inventory Report"} | Date: {new Date().toLocaleDateString()}</p>

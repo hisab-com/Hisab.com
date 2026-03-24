@@ -478,7 +478,7 @@ export default function Purchase({ onBack, shop }: any) {
                         <div className="grid grid-cols-2 gap-4 mb-5">
                             <div>
                                 <label className="block text-xs font-bold text-slate-500 mb-1">Paid Amount (৳)</label>
-                                <input type="number" value={paid} onChange={e => setPaid(e.target.value === '' ? '' : Number(e.target.value))} placeholder={totalAmount.toString()} className={`w-full bg-blue-50/30 border-2 border-blue-200 rounded-xl p-2.5 text-lg font-black text-blue-600 outline-none focus:border-blue-400`} />
+                                <input type="number" value={paid} onChange={e => setPaid(e.target.value === '' ? '' : Number(e.target.value))} placeholder={(totalAmount ?? 0).toString()} className={`w-full bg-blue-50/30 border-2 border-blue-200 rounded-xl p-2.5 text-lg font-black text-blue-600 outline-none focus:border-blue-400`} />
                             </div>
                             <div className="text-right">
                                 <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wider">Due to Supplier</label>

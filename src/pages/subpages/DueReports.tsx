@@ -94,7 +94,7 @@ export default function DueReports({ onBack, shop }: any) {
         setEditId(due.$id);
         setCustomerName(due.customer_name);
         setCustomerPhone(due.customer_phone || '');
-        setAmount(due.amount.toString());
+        setAmount((due.amount ?? 0).toString());
         setType(due.type);
         setNote(due.note || '');
         setShowAddModal(true);

@@ -67,7 +67,7 @@ export const AppConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const [language, setLanguage] = useState<Language>('bn');
     const [theme, setTheme] = useState<Theme>('bkash');
     const [currency, setCurrency] = useState<string>('৳');
-    const [decimalPoint, setDecimalPoint] = useState<number>(0);
+    const [decimalPoint, setDecimalPoint] = useState<number>(2);
 
     useEffect(() => {
         const savedLang = localStorage.getItem('app_lang') as Language;
@@ -101,7 +101,8 @@ export const AppConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         localStorage.setItem('app_decimal', newDecimal.toString());
     };
 
-    const formatCurrency = (amount: number | string) => {
+    const formatCurrency = (amount: any) => {
+        if (amount === null || amount === undefined) return `${currency}0`;
         const num = typeof amount === 'string' ? parseFloat(amount) : amount;
         return `${currency}${isNaN(num) ? 0 : num.toFixed(decimalPoint)}`;
     };

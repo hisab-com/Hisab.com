@@ -116,9 +116,9 @@ export default function ProductList({ onBack, shop }: any) {
                 image_url: finalImageUrl,
                 barcode: pBarcode,
                 is_wholesale: isWholesale ? "true" : "false",
-                wholesale_price: isWholesale ? Number(pWholesalePrice) : 0,
+                wholesale_price: isWholesale ? (Number(pWholesalePrice) || 0) : 0,
                 has_alert: hasAlert ? "true" : "false",
-                alert_qty: hasAlert ? Number(pAlertQty) : 5,
+                alert_qty: hasAlert ? (Number(pAlertQty) || 0) : 5,
                 has_expiry: hasExpiry ? "true" : "false",
                 expire_date: hasExpiry ? pExpireDate : ''
             };
@@ -183,9 +183,9 @@ export default function ProductList({ onBack, shop }: any) {
             setEditProductId(product.$id);
             setPName(product.name);
             setPBrand(product.brand || '');
-            setPBuyPrice(product.buy_price.toString());
-            setPSellPrice(product.sell_price.toString());
-            setPStock(product.stock.toString());
+            setPBuyPrice((product.buy_price ?? 0).toString());
+            setPSellPrice((product.sell_price ?? 0).toString());
+            setPStock((product.stock ?? 0).toString());
             setPUnit(product.unit || '');
             setPBarcode(product.barcode || '');
             setPImage(null);
@@ -291,11 +291,11 @@ export default function ProductList({ onBack, shop }: any) {
             index + 1,
             p.name,
             p.brand || "",
-            p.stock,
+            p.stock || 0,
             p.unit || "",
-            p.buy_price,
-            p.sell_price,
-            (p.stock * p.sell_price).toFixed(2)
+            p.buy_price || 0,
+            p.sell_price || 0,
+            ((p.stock || 0) * (p.sell_price || 0)).toFixed(2)
         ]);
 
         const csvContent = [
@@ -686,7 +686,7 @@ export default function ProductList({ onBack, shop }: any) {
                 
                 <div className="print-summary">
                     <div>Total Closing Stock : <span style={{color: '#9333ea'}}>{formatCurrency(totalValue)}</span></div>
-                    <div>Total Qty : <span style={{color: '#2563eb'}}>{totalQty.toFixed(2)}</span></div>
+                    <div>Total Qty : <span style={{color: '#2563eb'}}>{(totalQty || 0).toFixed(2)}</span></div>
                 </div>
 
                 <table className="print-table">
@@ -718,10 +718,10 @@ export default function ProductList({ onBack, shop }: any) {
                                         <span style={{fontWeight: 'bold', color: '#1f2937'}}>{p.name}</span>
                                         {p.brand && <div style={{fontSize: '10px', color: '#6b7280'}}>{p.brand}</div>}
                                     </td>
-                                    <td style={{fontWeight: '500'}}>{p.stock} <span style={{fontSize: '10px', color: '#6b7280'}}>{p.unit || ''}</span></td>
-                                    <td>{p.buy_price.toFixed(2)}</td>
-                                    <td>{p.sell_price.toFixed(2)}</td>
-                                    <td style={{fontWeight: 'bold'}}>{val.toFixed(2)}</td>
+                                    <td style={{fontWeight: '500'}}>{p.stock || 0} <span style={{fontSize: '10px', color: '#6b7280'}}>{p.unit || ''}</span></td>
+                                    <td>{(p.buy_price || 0).toFixed(2)}</td>
+                                    <td>{(p.sell_price || 0).toFixed(2)}</td>
+                                    <td style={{fontWeight: 'bold'}}>{(val || 0).toFixed(2)}</td>
                                 </tr>
                             );
                         })}

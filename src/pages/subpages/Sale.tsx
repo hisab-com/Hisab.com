@@ -524,7 +524,7 @@ export default function Sale({ onBack, shop }: any) {
                         <div className="grid grid-cols-2 gap-4 mb-5">
                             <div>
                                 <label className="block text-xs font-bold text-slate-500 mb-1">Received (৳)</label>
-                                <input type="number" value={paid} onChange={e => setPaid(e.target.value === '' ? '' : Number(e.target.value))} placeholder={grandTotal.toString()} className={`w-full bg-indigo-50/30 border-2 border-indigo-200 rounded-xl p-2.5 text-lg font-black ${themeClasses.primaryText} outline-none focus:border-indigo-400`} />
+                                <input type="number" value={paid} onChange={e => setPaid(e.target.value === '' ? '' : Number(e.target.value))} placeholder={(grandTotal ?? 0).toString()} className={`w-full bg-indigo-50/30 border-2 border-indigo-200 rounded-xl p-2.5 text-lg font-black ${themeClasses.primaryText} outline-none focus:border-indigo-400`} />
                             </div>
                             <div className="text-right">
                                 <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wider">{dueAmt < 0 ? 'Return Change' : 'Due Amount'}</label>

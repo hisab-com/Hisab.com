@@ -89,7 +89,7 @@ export default function ExpenseReports({ onBack, shop }: any) {
     const openEdit = (exp: any) => {
         setEditId(exp.$id);
         setTitle(exp.title);
-        setAmount(exp.amount.toString());
+        setAmount((exp.amount ?? 0).toString());
         setCategory(exp.category);
         setNote(exp.note || '');
         setShowAddModal(true);

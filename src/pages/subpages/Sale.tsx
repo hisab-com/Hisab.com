@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import PageHeader from '../../components/PageHeader';
 import { Search, Barcode, ArrowRight, ArrowLeft, Plus, Minus, Trash2, CheckCircle, Printer, ShoppingCart, User, Package, Loader2 } from 'lucide-react';
 import { useAppConfig } from '../../context/AppConfigContext';
-import { databases, DB_ID, PRODUCTS_COLLECTION, CONTACTS_COLLECTION, SALES_COLLECTION, ID, Query } from '../../lib/appwrite';
+import { databases, DB_ID, PRODUCTS_COLLECTION, CONTACTS_COLLECTION, SALES_COLLECTION, STOCK_HISTORY_COLLECTION, ID, Query } from '../../lib/appwrite';
 import { Html5Qrcode } from 'html5-qrcode';
 
 interface CartItem {
@@ -182,11 +182,21 @@ export default function Sale({ onBack, shop }: any) {
             // 1. Save Sale Document
             await databases.createDocument(DB_ID, SALES_COLLECTION, ID.unique(), saleData);
 
-            // 2. Reduce Stock
+            // 2. Reduce Stock & Log History
             for (const item of cartItems) {
                 const newStock = item.stock - item.qty;
                 await databases.updateDocument(DB_ID, PRODUCTS_COLLECTION, item.$id, {
                     stock: newStock
+                });
+
+                // Log to stock history
+                await databases.createDocument(DB_ID, STOCK_HISTORY_COLLECTION, ID.unique(), {
+                    shop_id: shop.$id,
+                    product_id: item.$id,
+                    product_name: item.name,
+                    qty: -item.qty, // Negative for reduction
+                    action: `Sale (Inv: ${invoiceNo})`,
+                    date: new Date().toISOString()
                 });
             }
 
@@ -199,9 +209,10 @@ export default function Sale({ onBack, shop }: any) {
             setPaid('');
             setCustomerName('');
 
-        } catch (error) {
+        } catch (error: any) {
             console.error('Sale Error:', error);
-            alert('Failed to process sale. Check collections and permissions in Appwrite.');
+            const errorMsg = error?.message || 'Unknown error';
+            alert(`Failed to process sale: ${errorMsg}\n\nPlease check if the "sales" collection exists in Appwrite and has the correct attributes and permissions.`);
         } finally {
             setIsProcessing(false);
         }

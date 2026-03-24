@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { useAppConfig } from '../../context/AppConfigContext';
-import { Store, User, Globe, Palette, LogOut, Shield, ChevronRight, Plus, Check, DollarSign, Hash, X, Upload, Loader2, MapPin, Cloud, Tag, Lock, Mail, Phone, Camera } from 'lucide-react';
+import { Store, User, Globe, Palette, LogOut, Shield, ChevronRight, Plus, Check, DollarSign, Hash, X, Upload, Loader2, MapPin, Cloud, Tag, Lock, Mail, Phone, Camera, DoorOpen } from 'lucide-react';
 import { databases, DB_ID, SHOPS_COLLECTION, account } from '../../lib/appwrite';
 import { uploadToCloudinary } from '../../utils/cloudinary';
 
 export default function SettingsTab({ 
-    user, shops, currentShop, setCurrentShop, setShowCreateShop, setShowAccessModal, logout 
+    user, shops, currentShop, setCurrentShop, setShowCreateShop, logout 
 }: any) {
     const { t, themeClasses, language, setLanguage, theme, setTheme, currency, setCurrency, decimalPoint, setDecimalPoint } = useAppConfig();
 
@@ -53,6 +53,38 @@ export default function SettingsTab({
         setShowUserProfile(true);
     };
 
+    const handleLeaveShop = async () => {
+        if (!currentShop || !user) return;
+        if (currentShop.owner_id === user.$id) {
+            alert("As the primary owner, you cannot leave. You must delete the shop or transfer ownership first.");
+            return;
+        }
+
+        if (!window.confirm(`Are you sure you want to leave ${currentShop.name}? You will lose access.`)) return;
+
+        setIsUpdatingShop(true);
+        try {
+            const userMobile = user.prefs?.mobile || '';
+            const allowedMobiles = (currentShop.allowed_mobiles || []).filter((m: string) => m !== userMobile);
+            
+            const roles = currentShop.access_roles ? JSON.parse(currentShop.access_roles) : {};
+            delete roles[userMobile];
+
+            await databases.updateDocument(DB_ID, SHOPS_COLLECTION, currentShop.$id, {
+                allowed_mobiles: allowedMobiles,
+                access_roles: JSON.stringify(roles)
+            });
+
+            setCurrentShop(null);
+            localStorage.removeItem('lastShopId');
+            window.location.reload(); // Refresh to update shops list
+        } catch (error) {
+            console.error('Error leaving shop:', error);
+            alert('Failed to leave shop');
+        } finally {
+            setIsUpdatingShop(false);
+        }
+    };
     const handleUpdateUser = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsUpdatingUser(true);
@@ -247,17 +279,6 @@ export default function SettingsTab({
                     </div>
                     <ChevronRight className="h-5 w-5 text-slate-400" />
                 </button>
-                {userRole === 'Owner' && (
-                    <button onClick={() => setShowAccessModal(true)} className="w-full flex items-center justify-between p-5 hover:bg-slate-50 transition-colors active:bg-slate-100">
-                        <div className="flex items-center">
-                            <div className="h-10 w-10 rounded-full bg-rose-50 flex items-center justify-center mr-4 text-rose-600">
-                                <Shield className="h-5 w-5" />
-                            </div>
-                            <span className="font-semibold text-slate-700 text-base">{t.appAccess}</span>
-                        </div>
-                        <ChevronRight className="h-5 w-5 text-slate-400" />
-                    </button>
-                )}
             </div>
 
             {/* Preferences */}
@@ -316,6 +337,18 @@ export default function SettingsTab({
                     </div>
                 </div>
             </div>
+
+            {/* Leave Shop */}
+            {currentShop?.owner_id !== user?.$id && (
+                <button 
+                    onClick={handleLeaveShop} 
+                    disabled={isUpdatingShop}
+                    className="w-full flex items-center justify-center p-4 bg-white border border-rose-100 text-rose-600 rounded-3xl font-bold shadow-sm hover:bg-rose-50 active:scale-95 transition-all mb-4"
+                >
+                    {isUpdatingShop ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <DoorOpen className="h-5 w-5 mr-2" />}
+                    Leave Shop
+                </button>
+            )}
 
             {/* Logout */}
             <button onClick={logout} className="w-full flex items-center justify-center p-4 bg-white border border-red-100 text-red-600 rounded-3xl font-bold shadow-sm hover:bg-red-50 active:scale-95 transition-all">

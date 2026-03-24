@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAppConfig } from '../../context/AppConfigContext';
-import { ShoppingCart, Tag, FileText, TrendingUp, AlertCircle, DollarSign, Users, Package, BarChart2, Briefcase, Lock, RotateCcw, Trash2, Shield, QrCode, Printer, StickyNote } from 'lucide-react';
+import { ShoppingCart, Tag, FileText, TrendingUp, AlertCircle, DollarSign, Users, Package, BarChart2, Briefcase, Lock, RotateCcw, Trash2, Shield, QrCode, Printer, StickyNote, Globe, User } from 'lucide-react';
 
 export default function HomeTab({ onNavigate }: { onNavigate: (view: string) => void }) {
     const { t, themeClasses, formatCurrency } = useAppConfig();
@@ -81,6 +81,8 @@ export default function HomeTab({ onNavigate }: { onNavigate: (view: string) => 
                     <ActionButton view="purchaseReturn" icon={RotateCcw} label={t.purchaseReturn} colorClass="bg-rose-50 text-rose-600" />
                     <ActionButton view="expireItems" icon={Trash2} label={t.expireItems} colorClass="bg-red-50 text-red-600" />
                     <ActionButton view="appAccess" icon={Shield} label={t.appAccess} colorClass="bg-emerald-50 text-emerald-600" />
+                    <ActionButton view="community" icon={Globe} label={t.community || "Community"} colorClass="bg-indigo-50 text-indigo-600" />
+                    <ActionButton view="profile" icon={User} label={t.myProfile || "My Profile"} colorClass="bg-slate-100 text-slate-600" />
                     <ActionButton view="barcodeGen" icon={QrCode} label={t.barcodeGen} colorClass="bg-slate-100 text-slate-700" />
                     <ActionButton view="printer" icon={Printer} label={t.printer} colorClass="bg-slate-100 text-slate-700" />
                     <ActionButton view="note" icon={StickyNote} label={t.note} colorClass="bg-yellow-50 text-yellow-600" />

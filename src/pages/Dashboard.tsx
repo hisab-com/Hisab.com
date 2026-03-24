@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useAppConfig } from '../context/AppConfigContext';
-import { databases, DB_ID, SHOPS_COLLECTION, ID, Query } from '../lib/appwrite';
-import { Store, Settings, Plus, X, Loader2, Home, FileText, Bell, Upload, ChevronRight } from 'lucide-react';
+import { databases, DB_ID, SHOPS_COLLECTION, INVITATIONS_COLLECTION, ID, Query } from '../lib/appwrite';
+import { Store, Settings, Plus, X, Loader2, Home, FileText, Bell, Upload, ChevronRight, Check, Trash2 } from 'lucide-react';
 import HomeTab from '../components/tabs/HomeTab';
 import ReportTab from '../components/tabs/ReportTab';
 import SettingsTab from '../components/tabs/SettingsTab';
 import SubPageRenderer from './subpages/SubPageRenderer';
-import AppAccessModal from '../components/modals/AppAccessModal';
 import { uploadToCloudinary, DEFAULT_CLOUDINARY } from '../utils/cloudinary';
 
 export default function Dashboard() {
@@ -28,13 +27,100 @@ export default function Dashboard() {
     const [newShopLogo, setNewShopLogo] = useState<File | null>(null);
     const [isCreating, setIsCreating] = useState(false);
 
-    const [showAccessModal, setShowAccessModal] = useState(false);
-
     const [showNotifications, setShowNotifications] = useState(false);
+    const [invitations, setInvitations] = useState<any[]>([]);
+    const [loadingInvitations, setLoadingInvitations] = useState(false);
 
     useEffect(() => {
         fetchShops();
+        fetchInvitations();
     }, [user]);
+
+    const fetchInvitations = async () => {
+        if (!user) return;
+        setLoadingInvitations(true);
+        try {
+            const userMobile = user.prefs?.mobile || '';
+            const userEmail = user.email || '';
+            
+            const queries = [Query.equal('status', 'pending')];
+            const orQueries = [];
+            if (userMobile) orQueries.push(Query.equal('receiver_mobile', userMobile));
+            if (userEmail) orQueries.push(Query.equal('receiver_email', userEmail));
+            orQueries.push(Query.equal('receiver_id', user.$id));
+
+            const res = await databases.listDocuments(DB_ID, INVITATIONS_COLLECTION, [
+                ...queries,
+                Query.or(orQueries)
+            ]);
+            setInvitations(res.documents);
+        } catch (error: any) {
+            console.error('Error fetching invitations:', error);
+            if (error.message?.includes('Attribute not found')) {
+                console.warn('Invitations collection missing attributes (status, receiver_mobile, receiver_email, or receiver_id).');
+            }
+        } finally {
+            setLoadingInvitations(false);
+        }
+    };
+
+    const handleAcceptInvitation = async (invite: any) => {
+        if (!user) return;
+        setLoadingInvitations(true);
+        try {
+            // 1. Get the shop
+            const shop = await databases.getDocument(DB_ID, SHOPS_COLLECTION, invite.shop_id);
+            
+            // 2. Update shop's allowed_mobiles and access_roles
+            const userMobile = user.prefs?.mobile || invite.receiver_mobile;
+            const allowedMobiles = [...(shop.allowed_mobiles || [])];
+            if (userMobile && !allowedMobiles.includes(userMobile)) {
+                allowedMobiles.push(userMobile);
+            }
+
+            const roles = shop.access_roles ? JSON.parse(shop.access_roles) : {};
+            roles[userMobile] = {
+                role: invite.role || 'staff',
+                permissions: invite.permissions ? JSON.parse(invite.permissions) : ['sales', 'products', 'customers']
+            };
+
+            await databases.updateDocument(DB_ID, SHOPS_COLLECTION, shop.$id, {
+                allowed_mobiles: allowedMobiles,
+                access_roles: JSON.stringify(roles)
+            });
+
+            // 3. Update invitation status
+            await databases.updateDocument(DB_ID, INVITATIONS_COLLECTION, invite.$id, {
+                status: 'accepted'
+            });
+
+            // 4. Refresh shops and invitations
+            fetchShops();
+            fetchInvitations();
+            alert(`Joined ${shop.name} successfully!`);
+        } catch (error) {
+            console.error('Error accepting invitation:', error);
+            alert('Failed to accept invitation');
+        } finally {
+            setLoadingInvitations(false);
+        }
+    };
+
+    const handleDeclineInvitation = async (invite: any) => {
+        if (!window.confirm('Are you sure you want to decline this invitation?')) return;
+        setLoadingInvitations(true);
+        try {
+            await databases.updateDocument(DB_ID, INVITATIONS_COLLECTION, invite.$id, {
+                status: 'declined'
+            });
+            fetchInvitations();
+        } catch (error) {
+            console.error('Error declining invitation:', error);
+            alert('Failed to decline invitation');
+        } finally {
+            setLoadingInvitations(false);
+        }
+    };
 
     const handleSetCurrentShop = (shop: any) => {
         setCurrentShop(shop);
@@ -185,7 +271,9 @@ export default function Dashboard() {
                 <div className="flex items-center">
                     <button onClick={() => setShowNotifications(true)} className="relative p-2 rounded-full hover:bg-white/20 transition-colors">
                         <Bell className="h-5 w-5" />
-                        <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-red-500 rounded-full border border-white"></span>
+                        {invitations.length > 0 && (
+                            <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-red-500 rounded-full border border-white"></span>
+                        )}
                     </button>
                 </div>
             </header>
@@ -243,7 +331,14 @@ export default function Dashboard() {
                 ) : (
                     <>
                         {currentView !== 'dashboard' ? (
-                            <SubPageRenderer view={currentView} onBack={() => setCurrentView('dashboard')} shop={currentShop} />
+                            <SubPageRenderer 
+                                view={currentView} 
+                                onBack={() => setCurrentView('dashboard')} 
+                                shop={currentShop}
+                                setShops={setShops}
+                                shops={shops}
+                                setCurrentShop={setCurrentShop}
+                            />
                         ) : (
                             <>
                                 {activeTab === 'home' && <HomeTab onNavigate={setCurrentView} />}
@@ -255,7 +350,6 @@ export default function Dashboard() {
                                         currentShop={currentShop}
                                         setCurrentShop={setCurrentShop}
                                         setShowCreateShop={setShowCreateShop}
-                                        setShowAccessModal={setShowAccessModal}
                                         logout={logout}
                                     />
                                 )}
@@ -375,16 +469,6 @@ export default function Dashboard() {
                 </div>
             )}
 
-            {/* Add Access Modal */}
-            <AppAccessModal 
-                isOpen={showAccessModal} 
-                onClose={() => setShowAccessModal(false)} 
-                currentShop={currentShop}
-                setCurrentShop={handleSetCurrentShop}
-                shops={shops}
-                setShops={setShops}
-            />
-
             {/* Notifications Modal */}
             {showNotifications && (
                 <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/50 backdrop-blur-sm">
@@ -395,12 +479,55 @@ export default function Dashboard() {
                                 <X className="h-5 w-5" />
                             </button>
                         </div>
-                        <div className="flex-1 overflow-y-auto p-4 flex flex-col items-center justify-center text-slate-500">
-                            <Bell className="h-12 w-12 text-slate-300 mb-3" />
-                            <p>No new notifications</p>
-                            <p className="text-xs text-center mt-2 max-w-[250px]">
-                                Notifications sent from the Admin App will appear here.
-                            </p>
+                        <div className="flex-1 overflow-y-auto p-4">
+                            {loadingInvitations ? (
+                                <div className="flex justify-center py-8">
+                                    <Loader2 className={`h-6 w-6 animate-spin ${themeClasses.primaryText}`} />
+                                </div>
+                            ) : invitations.length > 0 ? (
+                                <div className="space-y-4">
+                                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider px-2">Shop Invitations</h4>
+                                    {invitations.map(invite => (
+                                        <div key={invite.$id} className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
+                                            <div className="flex items-start justify-between mb-3">
+                                                <div className="flex items-center">
+                                                    <div className={`h-10 w-10 rounded-xl ${themeClasses.primaryBg} text-white flex items-center justify-center mr-3 shadow-sm`}>
+                                                        <Store className="h-5 w-5" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-bold text-slate-800 text-sm">{invite.shop_name}</p>
+                                                        <p className="text-[10px] text-slate-500 font-medium">Invited by {invite.sender_name}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="flex space-x-2">
+                                                <button 
+                                                    onClick={() => handleAcceptInvitation(invite)}
+                                                    className={`flex-1 flex items-center justify-center space-x-1 py-2 rounded-xl ${themeClasses.primaryBg} text-white text-xs font-bold shadow-sm active:scale-95 transition-all`}
+                                                >
+                                                    <Check className="h-3.5 w-3.5" />
+                                                    <span>Accept</span>
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleDeclineInvitation(invite)}
+                                                    className="flex-1 flex items-center justify-center space-x-1 py-2 rounded-xl bg-white border border-slate-200 text-slate-600 text-xs font-bold active:scale-95 transition-all"
+                                                >
+                                                    <X className="h-3.5 w-3.5" />
+                                                    <span>Decline</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="flex flex-col items-center justify-center h-full text-slate-500">
+                                    <Bell className="h-12 w-12 text-slate-300 mb-3" />
+                                    <p>No new notifications</p>
+                                    <p className="text-xs text-center mt-2 max-w-[250px]">
+                                        Notifications and shop invitations will appear here.
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

@@ -14,3 +14,6 @@ export const PRODUCTS_COLLECTION = 'products';
 export const STOCK_HISTORY_COLLECTION = 'stock_history';
 export const CONTACTS_COLLECTION = 'contacts';
 export const SALES_COLLECTION = 'sales';
+export const USERS_COLLECTION = 'users_public';
+export const INVITATIONS_COLLECTION = 'invitations';
+export const POSTS_COLLECTION = 'posts';

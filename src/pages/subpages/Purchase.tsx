@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import PageHeader from '../../components/PageHeader';
-import { Search, Barcode, ArrowRight, ArrowLeft, Plus, Minus, Trash2, CheckCircle, Printer, ShoppingCart, User, Package, Loader2, X } from 'lucide-react';
+import { Search, Barcode, ArrowRight, ArrowLeft, Plus, Minus, Trash2, CheckCircle, Printer, ShoppingBag, User, Package, Loader2, X } from 'lucide-react';
 import { useAppConfig } from '../../context/AppConfigContext';
-import { databases, DB_ID, PRODUCTS_COLLECTION, CONTACTS_COLLECTION, SALES_COLLECTION, STOCK_HISTORY_COLLECTION, ID, Query } from '../../lib/appwrite';
+import { databases, DB_ID, PRODUCTS_COLLECTION, CONTACTS_COLLECTION, PURCHASES_COLLECTION, STOCK_HISTORY_COLLECTION, ID, Query } from '../../lib/appwrite';
 import { Html5Qrcode } from 'html5-qrcode';
 
 interface CartItem {
@@ -10,32 +10,31 @@ interface CartItem {
     name: string;
     brand?: string;
     qty: number;
-    sellRate: number;
-    buy_price: number;
+    buyRate: number;
+    sell_price: number;
     stock: number;
     [key: string]: any;
 }
 
-export default function Sale({ onBack, shop }: any) {
+export default function Purchase({ onBack, shop }: any) {
     const { t, themeClasses, formatCurrency } = useAppConfig();
     
     // Views: 'selection' | 'checkout' | 'receipt'
     const [currentView, setCurrentView] = useState<'selection' | 'checkout' | 'receipt'>('selection');
     
     const [products, setProducts] = useState<any[]>([]);
-    const [customers, setCustomers] = useState<any[]>([]);
+    const [suppliers, setSuppliers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     
-    // Cart State: { productId: { ...product, qty, sellRate } }
+    // Cart State: { productId: { ...product, qty, buyRate } }
     const [cart, setCart] = useState<Record<string, CartItem>>({});
     
     // Checkout State
     const [invoiceNo, setInvoiceNo] = useState('');
-    const [sellDate, setSellDate] = useState(new Date().toISOString().split('T')[0]);
-    const [customerName, setCustomerName] = useState('');
-    const [showCustDropdown, setShowCustDropdown] = useState(false);
-    const [discount, setDiscount] = useState<number | ''>(0);
+    const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().split('T')[0]);
+    const [supplierName, setSupplierName] = useState('');
+    const [showSuppDropdown, setShowSuppDropdown] = useState(false);
     const [paid, setPaid] = useState<number | ''>('');
     const [paymentMethod, setPaymentMethod] = useState('Cash');
     
@@ -44,6 +43,7 @@ export default function Sale({ onBack, shop }: any) {
     const [showQuickAdd, setShowQuickAdd] = useState(false);
     const [isSavingProduct, setIsSavingProduct] = useState(false);
     const [newPName, setNewPName] = useState('');
+    const [newPBuyPrice, setNewPBuyPrice] = useState('');
     const [newPSellPrice, setNewPSellPrice] = useState('');
     const [newPStock, setNewPStock] = useState('');
 
@@ -55,9 +55,9 @@ export default function Sale({ onBack, shop }: any) {
             const productData = {
                 shop_id: shop.$id,
                 name: newPName,
+                buy_price: Number(newPBuyPrice) || 0,
                 sell_price: Number(newPSellPrice) || 0,
                 stock: Number(newPStock) || 0,
-                buy_price: 0,
                 unit: 'pcs',
                 is_wholesale: "false",
                 has_alert: "false",
@@ -67,12 +67,11 @@ export default function Sale({ onBack, shop }: any) {
             setProducts([newProduct, ...products]);
             setShowQuickAdd(false);
             setNewPName('');
+            setNewPBuyPrice('');
             setNewPSellPrice('');
             setNewPStock('');
-            // Auto add to cart if stock > 0
-            if (Number(newPStock) > 0) {
-                toggleCart(newProduct);
-            }
+            // Auto add to cart
+            toggleCart(newProduct);
         } catch (error) {
             console.error('Error quick adding product:', error);
             alert('Failed to add product.');
@@ -87,7 +86,7 @@ export default function Sale({ onBack, shop }: any) {
 
     useEffect(() => {
         fetchInitialData();
-        setInvoiceNo("INV-" + Math.floor(100000 + Math.random() * 900000));
+        setInvoiceNo("PUR-" + Math.floor(100000 + Math.random() * 900000));
     }, [shop.$id]);
 
     const fetchInitialData = async () => {
@@ -101,20 +100,20 @@ export default function Sale({ onBack, shop }: any) {
             ]);
             setProducts(prodRes.documents);
 
-            // Fetch Customers safely
-            let fetchedCustomers: any[] = [];
+            // Fetch Suppliers
+            let fetchedSuppliers: any[] = [];
             try {
-                const custRes = await databases.listDocuments(DB_ID, CONTACTS_COLLECTION, [
+                const suppRes = await databases.listDocuments(DB_ID, CONTACTS_COLLECTION, [
                     Query.equal('shop_id', shop.$id),
-                    Query.equal('type', 'customers'),
+                    Query.equal('type', 'suppliers'),
                     Query.limit(500)
                 ]);
-                fetchedCustomers = custRes.documents;
+                fetchedSuppliers = suppRes.documents;
             } catch (err) {
-                console.warn('Could not fetch customers. Please check CONTACTS_COLLECTION ID.');
+                console.warn('Could not fetch suppliers.');
             }
             
-            setCustomers([{ name: 'Local (Walk-in)', phone: '' }, ...fetchedCustomers]);
+            setSuppliers([{ name: 'General Supplier', phone: '' }, ...fetchedSuppliers]);
         } catch (error) {
             console.error('Error fetching data:', error);
         } finally {
@@ -135,15 +134,11 @@ export default function Sale({ onBack, shop }: any) {
             if (newCart[product.$id]) {
                 delete newCart[product.$id];
             } else {
-                if (product.stock > 0) {
-                    newCart[product.$id] = { 
-                        ...product, 
-                        qty: 1, 
-                        sellRate: product.sell_price 
-                    };
-                } else {
-                    alert('This item is out of stock!');
-                }
+                newCart[product.$id] = { 
+                    ...product, 
+                    qty: 1, 
+                    buyRate: product.buy_price || 0
+                };
             }
             return newCart;
         });
@@ -151,22 +146,15 @@ export default function Sale({ onBack, shop }: any) {
 
     // --- Checkout Logic ---
     const cartItems = Object.values(cart) as CartItem[];
-    const subtotal = cartItems.reduce((sum, item) => sum + (item.qty * item.sellRate), 0);
-    const discountAmt = Number(discount) || 0;
-    const grandTotal = subtotal - discountAmt;
-    const paidAmt = paid === '' ? grandTotal : Number(paid);
-    const dueAmt = grandTotal - paidAmt;
+    const totalAmount = cartItems.reduce((sum, item) => sum + (item.qty * item.buyRate), 0);
+    const paidAmt = paid === '' ? totalAmount : Number(paid);
+    const dueAmt = totalAmount - paidAmt;
 
     const updateCartQty = (id: string, delta: number, manualVal?: number) => {
         setCart(prev => {
             const newCart = { ...prev };
             const item = newCart[id];
             let newQty = manualVal !== undefined ? manualVal : item.qty + delta;
-            
-            if (newQty > item.stock) {
-                alert(`Maximum available stock: ${item.stock}`);
-                newQty = item.stock;
-            }
             
             if (newQty <= 0) {
                 delete newCart[id];
@@ -180,52 +168,46 @@ export default function Sale({ onBack, shop }: any) {
     const updateCartRate = (id: string, val: number) => {
         setCart(prev => ({
             ...prev,
-            [id]: { ...prev[id], sellRate: Number(val) || 0 }
+            [id]: { ...prev[id], buyRate: Number(val) || 0 }
         }));
     };
 
-    const handleConfirmSale = async () => {
+    const handleConfirmPurchase = async () => {
         if (cartItems.length === 0) return alert('Cart is empty!');
         setIsProcessing(true);
 
         const itemsToSave = cartItems.map(item => ({
             id: item.$id,
             name: item.name,
-            brand: item.brand || '',
             qty: item.qty,
-            sellRate: item.sellRate,
-            buyRate: item.buy_price,
-            profit: (item.sellRate - item.buy_price) * item.qty,
-            image_url: item.image_url || ''
+            buyRate: item.buyRate,
+            sellRate: item.sell_price
         }));
 
-        const totalProfit = itemsToSave.reduce((sum, item) => sum + item.profit, 0) - discountAmt;
-        const finalCustName = customerName.trim() || 'Local (Walk-in)';
+        const finalSuppName = supplierName.trim() || 'General Supplier';
 
-        const saleData = {
+        const purchaseData = {
             shop_id: shop.$id,
             invoice_no: invoiceNo,
-            customer_name: finalCustName,
-            date: sellDate,
+            supplier_name: finalSuppName,
+            date: purchaseDate,
             items: JSON.stringify(itemsToSave),
-            subtotal: subtotal,
-            discount: discountAmt,
-            total_amount: grandTotal,
+            total_amount: totalAmount,
             paid_amount: paidAmt,
             due_amount: dueAmt > 0 ? dueAmt : 0,
-            total_profit: totalProfit,
             payment_method: paymentMethod
         };
 
         try {
-            // 1. Save Sale Document
-            await databases.createDocument(DB_ID, SALES_COLLECTION, ID.unique(), saleData);
+            // 1. Save Purchase Document
+            await databases.createDocument(DB_ID, PURCHASES_COLLECTION, ID.unique(), purchaseData);
 
-            // 2. Reduce Stock & Log History
+            // 2. Increase Stock & Log History
             for (const item of cartItems) {
-                const newStock = item.stock - item.qty;
+                const newStock = (item.stock || 0) + item.qty;
                 await databases.updateDocument(DB_ID, PRODUCTS_COLLECTION, item.$id, {
-                    stock: newStock
+                    stock: newStock,
+                    buy_price: item.buyRate // Update buy price to last purchase price
                 });
 
                 // Log to stock history
@@ -233,25 +215,23 @@ export default function Sale({ onBack, shop }: any) {
                     shop_id: shop.$id,
                     product_id: item.$id,
                     product_name: item.name,
-                    qty: -item.qty, // Negative for reduction
-                    action: `Sale (Inv: ${invoiceNo})`,
+                    qty: item.qty, // Positive for addition
+                    action: `Purchase (Inv: ${invoiceNo})`,
                     date: new Date().toISOString()
                 });
             }
 
             // Set receipt and change view
-            setReceiptData(saleData);
+            setReceiptData(purchaseData);
             setCurrentView('receipt');
             setCart({});
-            setInvoiceNo("INV-" + Math.floor(100000 + Math.random() * 900000));
-            setDiscount(0);
+            setInvoiceNo("PUR-" + Math.floor(100000 + Math.random() * 900000));
             setPaid('');
-            setCustomerName('');
+            setSupplierName('');
 
         } catch (error: any) {
-            console.error('Sale Error:', error);
-            const errorMsg = error?.message || 'Unknown error';
-            alert(`Failed to process sale: ${errorMsg}\n\nPlease check if the "sales" collection exists in Appwrite and has the correct attributes and permissions.`);
+            console.error('Purchase Error:', error);
+            alert(`Failed to process purchase: ${error?.message || 'Unknown error'}`);
         } finally {
             setIsProcessing(false);
         }
@@ -288,24 +268,20 @@ export default function Sale({ onBack, shop }: any) {
         }
     };
 
-    // ==========================================
-    // RENDER PRODUCT SELECTION VIEW
-    // ==========================================
     if (currentView === 'selection') {
         return (
             <div className="h-screen bg-slate-50 flex flex-col relative">
-                <PageHeader title="Point of Sale (Sell)" onBack={onBack} />
+                <PageHeader title="Purchase Inventory" onBack={onBack} />
                 
-                {/* Search Bar */}
                 <div className="p-4 bg-white border-b border-slate-200 shadow-sm z-10">
                     <div className="flex space-x-3">
                         <div className="relative flex-1 group">
-                            <Search className={`absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-indigo-600 transition-colors`} />
+                            <Search className={`absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:text-blue-600 transition-colors`} />
                             <input 
                                 type="text" 
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                placeholder="Search by name, brand or barcode..." 
+                                placeholder="Search products to buy..." 
                                 className="w-full pl-12 pr-4 py-3 bg-slate-100 border border-transparent rounded-2xl focus:bg-white focus:border-slate-300 focus:ring-4 focus:ring-slate-100 outline-none transition-all text-sm font-medium" 
                             />
                         </div>
@@ -318,34 +294,28 @@ export default function Sale({ onBack, shop }: any) {
                     </div>
                 </div>
 
-                {/* Product Grid */}
                 <div className="flex-1 overflow-y-auto p-4 pb-28 space-y-3 custom-scrollbar">
                     {loading ? (
                         <div className="text-center py-10 text-slate-500">Loading inventory...</div>
                     ) : filteredProducts.map(p => {
                         const inCart = !!cart[p.$id];
-                        const outOfStock = p.stock <= 0;
                         return (
                             <div 
                                 key={p.$id} 
                                 onClick={() => toggleCart(p)}
-                                className={`bg-white p-3.5 rounded-2xl border-2 transition-all flex items-center cursor-pointer ${inCart ? `border-indigo-500 bg-indigo-50/30` : 'border-slate-100 hover:border-slate-300'} ${outOfStock ? 'opacity-50 pointer-events-none' : ''}`}
+                                className={`bg-white p-3.5 rounded-2xl border-2 transition-all flex items-center cursor-pointer ${inCart ? `border-blue-500 bg-blue-50/30` : 'border-slate-100 hover:border-slate-300'}`}
                             >
-                                {p.image_url ? (
-                                    <img src={p.image_url} className="h-12 w-12 rounded-xl object-cover border border-slate-200 mr-4" alt={p.name} />
-                                ) : (
-                                    <div className="h-12 w-12 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center mr-4">
-                                        <Package className="h-6 w-6" />
-                                    </div>
-                                )}
+                                <div className="h-12 w-12 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center mr-4">
+                                    <Package className="h-6 w-6" />
+                                </div>
                                 <div className="flex-1 min-w-0">
                                     <h3 className="font-bold text-slate-800 text-sm truncate">{p.name}</h3>
                                     <div className="flex gap-2 mt-1">
-                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${outOfStock ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600'}`}>Stock: {p.stock}</span>
-                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-700">Sell: {formatCurrency(p.sell_price)}</span>
+                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">Stock: {p.stock}</span>
+                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-100 text-blue-700">Buy: {formatCurrency(p.buy_price || 0)}</span>
                                     </div>
                                 </div>
-                                <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${inCart ? `${themeClasses.primaryBg} text-white` : 'bg-slate-100 text-slate-400'}`}>
+                                <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${inCart ? `bg-blue-600 text-white` : 'bg-slate-100 text-slate-400'}`}>
                                     {inCart ? <CheckCircle className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
                                 </div>
                             </div>
@@ -353,28 +323,26 @@ export default function Sale({ onBack, shop }: any) {
                     })}
                 </div>
 
-                {/* Bottom Cart Bar */}
                 <div className="absolute bottom-0 left-0 w-full bg-white p-4 border-t border-slate-200 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] flex justify-between items-center rounded-t-3xl">
                     <div>
-                        <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-0.5">Items in Cart</p>
-                        <h3 className={`text-xl font-black ${themeClasses.primaryText}`}>{cartItems.length} Items</h3>
+                        <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-0.5">Items to Purchase</p>
+                        <h3 className={`text-xl font-black text-blue-600`}>{cartItems.length} Items</h3>
                     </div>
                     <button 
                         disabled={cartItems.length === 0}
                         onClick={() => setCurrentView('checkout')}
-                        className={`px-6 py-3.5 rounded-2xl ${themeClasses.primaryBg} text-white font-bold shadow-md hover:shadow-lg disabled:opacity-50 transition-all flex items-center`}
+                        className={`px-6 py-3.5 rounded-2xl bg-blue-600 text-white font-bold shadow-md hover:shadow-lg disabled:opacity-50 transition-all flex items-center`}
                     >
-                        Proceed <ArrowRight className="ml-2 h-5 w-5" />
+                        Checkout <ArrowRight className="ml-2 h-5 w-5" />
                     </button>
                 </div>
 
-                {/* Quick Add Modal */}
                 {showQuickAdd && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
                         <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
                             <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
                                 <h3 className="text-lg font-bold text-slate-800 flex items-center">
-                                    <Plus className={`h-5 w-5 mr-2 ${themeClasses.primaryText}`} /> Quick Add Product
+                                    <Plus className={`h-5 w-5 mr-2 text-blue-600`} /> Quick Add Product
                                 </h3>
                                 <button onClick={() => setShowQuickAdd(false)} className="p-2 bg-slate-100 text-slate-500 rounded-full hover:bg-slate-200 transition-colors">
                                     <X className="h-4 w-4" />
@@ -387,23 +355,26 @@ export default function Sale({ onBack, shop }: any) {
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
+                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Buy Price</label>
+                                        <input type="number" required value={newPBuyPrice} onChange={e => setNewPBuyPrice(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-slate-300 transition-all font-bold" placeholder="0" />
+                                    </div>
+                                    <div>
                                         <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Sell Price</label>
                                         <input type="number" required value={newPSellPrice} onChange={e => setNewPSellPrice(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-slate-300 transition-all font-bold" placeholder="0" />
                                     </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Stock</label>
-                                        <input type="number" required value={newPStock} onChange={e => setNewPStock(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-slate-300 transition-all font-bold" placeholder="0" />
-                                    </div>
                                 </div>
-                                <button type="submit" disabled={isSavingProduct || !newPName.trim()} className={`w-full py-3.5 rounded-xl ${themeClasses.primaryBg} text-white font-bold shadow-md hover:shadow-lg transition-all active:scale-95 disabled:opacity-70 flex justify-center items-center`}>
-                                    {isSavingProduct ? <Loader2 className="h-5 w-5 animate-spin" /> : "Add & Select"}
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Initial Stock</label>
+                                    <input type="number" required value={newPStock} onChange={e => setNewPStock(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white focus:border-slate-300 transition-all font-bold" placeholder="0" />
+                                </div>
+                                <button type="submit" disabled={isSavingProduct || !newPName.trim()} className={`w-full py-3.5 rounded-xl bg-blue-600 text-white font-bold shadow-md hover:shadow-lg transition-all active:scale-95 disabled:opacity-70 flex justify-center items-center`}>
+                                    {isSavingProduct ? <Loader2 className="h-5 w-5 animate-spin" /> : "Add to Cart"}
                                 </button>
                             </form>
                         </div>
                     </div>
                 )}
 
-                {/* Scanner Modal */}
                 {showScannerModal && (
                     <div className="fixed inset-0 z-[60] bg-black flex flex-col items-center justify-center">
                         <div id="reader" className="w-full max-w-sm rounded-3xl overflow-hidden border-4 border-white shadow-2xl"></div>
@@ -414,23 +385,19 @@ export default function Sale({ onBack, shop }: any) {
         );
     }
 
-    // ==========================================
-    // RENDER CHECKOUT VIEW
-    // ==========================================
     if (currentView === 'checkout') {
-        const filteredCustomers = customers.filter(c => c.name.toLowerCase().includes(customerName.toLowerCase()));
+        const filteredSuppliers = suppliers.filter(s => s.name.toLowerCase().includes(supplierName.toLowerCase()));
 
         return (
             <div className="h-screen bg-slate-50 flex flex-col relative">
-                <div className={`${themeClasses.primaryBg} p-4 text-white flex items-center shadow-md pb-8 rounded-b-3xl z-10`}>
+                <div className="bg-blue-600 p-4 text-white flex items-center shadow-md pb-8 rounded-b-3xl z-10">
                     <button onClick={() => setCurrentView('selection')} className="p-2 hover:bg-white/20 rounded-full transition-colors mr-3">
                         <ArrowLeft className="h-6 w-6" />
                     </button>
-                    <h2 className="text-lg font-bold">Checkout Details</h2>
+                    <h2 className="text-lg font-bold">Purchase Details</h2>
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-4 -mt-4 z-20 custom-scrollbar">
-                    {/* Invoice & Customer Card */}
                     <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 mb-4">
                         <div className="grid grid-cols-2 gap-4 mb-4">
                             <div>
@@ -439,36 +406,33 @@ export default function Sale({ onBack, shop }: any) {
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-slate-500 mb-1">Date</label>
-                                <input type="date" value={sellDate} onChange={e => setSellDate(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-sm font-medium outline-none focus:border-indigo-400" />
+                                <input type="date" value={purchaseDate} onChange={e => setPurchaseDate(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-sm font-medium outline-none focus:border-blue-400" />
                             </div>
                         </div>
 
                         <div className="relative">
-                            <label className="block text-xs font-bold text-slate-500 mb-1">Customer Name</label>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Supplier Name</label>
                             <div className="relative">
                                 <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                                 <input 
                                     type="text" 
-                                    value={customerName}
-                                    onChange={(e) => { setCustomerName(e.target.value); setShowCustDropdown(true); }}
-                                    onFocus={() => setShowCustDropdown(true)}
-                                    placeholder="Search or type customer name..." 
-                                    className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-indigo-400"
+                                    value={supplierName}
+                                    onChange={(e) => { setSupplierName(e.target.value); setShowSuppDropdown(true); }}
+                                    onFocus={() => setShowSuppDropdown(true)}
+                                    placeholder="Search or type supplier name..." 
+                                    className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-blue-400"
                                 />
                             </div>
-                            {/* Dropdown */}
-                            {showCustDropdown && customerName.length > 0 && (
+                            {showSuppDropdown && supplierName.length > 0 && (
                                 <div className="absolute top-full left-0 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto z-50">
-                                    {filteredCustomers.length === 0 ? (
-                                        <div className="p-3 text-xs text-slate-400 text-center">No customer found</div>
-                                    ) : filteredCustomers.map((c, i) => (
+                                    {filteredSuppliers.map((s, i) => (
                                         <div 
                                             key={i} 
-                                            onClick={() => { setCustomerName(c.name); setShowCustDropdown(false); }}
+                                            onClick={() => { setSupplierName(s.name); setShowSuppDropdown(false); }}
                                             className="p-3 border-b border-slate-50 hover:bg-slate-50 cursor-pointer flex justify-between items-center"
                                         >
-                                            <span className="font-bold text-slate-700 text-sm">{c.name}</span>
-                                            <span className="text-xs text-slate-400">{c.phone}</span>
+                                            <span className="font-bold text-slate-700 text-sm">{s.name}</span>
+                                            <span className="text-xs text-slate-400">{s.phone}</span>
                                         </div>
                                     ))}
                                 </div>
@@ -476,11 +440,10 @@ export default function Sale({ onBack, shop }: any) {
                         </div>
                     </div>
 
-                    {/* Cart Items List */}
                     <div className="bg-white rounded-2xl shadow-sm border border-slate-100 mb-4 overflow-hidden">
                         <div className="bg-slate-50 px-4 py-2 border-b border-slate-100 flex justify-between text-xs font-bold text-slate-500">
                             <span>ITEM & QTY</span>
-                            <span>RATE & TOTAL</span>
+                            <span>BUY RATE & TOTAL</span>
                         </div>
                         <div className="p-2">
                             {cartItems.map(item => (
@@ -495,10 +458,10 @@ export default function Sale({ onBack, shop }: any) {
                                     </div>
                                     <div className="text-right">
                                         <div className="flex items-center justify-end space-x-1 mb-1">
-                                            <span className="text-xs text-slate-400">Rate:</span>
-                                            <input type="number" value={item.sellRate} onChange={(e) => updateCartRate(item.$id, Number(e.target.value))} className={`w-16 text-right text-xs font-bold ${themeClasses.primaryText} border border-slate-200 rounded-md p-1`} />
+                                            <span className="text-xs text-slate-400">Buy Rate:</span>
+                                            <input type="number" value={item.buyRate} onChange={(e) => updateCartRate(item.$id, Number(e.target.value))} className={`w-16 text-right text-xs font-bold text-blue-600 border border-slate-200 rounded-md p-1`} />
                                         </div>
-                                        <div className="font-black text-slate-800">{formatCurrency(item.qty * item.sellRate)}</div>
+                                        <div className="font-black text-slate-800">{formatCurrency(item.qty * item.buyRate)}</div>
                                         <button onClick={() => updateCartQty(item.$id, -item.qty)} className="text-[10px] font-bold text-red-500 mt-1 uppercase"><Trash2 className="h-3 w-3 inline" /> Remove</button>
                                     </div>
                                 </div>
@@ -506,29 +469,20 @@ export default function Sale({ onBack, shop }: any) {
                         </div>
                     </div>
 
-                    {/* Payment Summary Card */}
                     <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 mb-20">
-                        <div className="flex justify-between items-center mb-3">
-                            <span className="font-bold text-slate-600">Subtotal:</span>
-                            <span className="font-bold text-slate-800">{formatCurrency(subtotal)}</span>
-                        </div>
-                        <div className="flex justify-between items-center mb-4">
-                            <span className="font-bold text-slate-600">Discount (৳):</span>
-                            <input type="number" value={discount} onChange={e => setDiscount(e.target.value === '' ? '' : Number(e.target.value))} className="w-24 text-right bg-slate-50 border border-slate-200 rounded-lg p-1.5 text-sm font-bold outline-none focus:border-indigo-400" />
-                        </div>
-                        <div className={`flex justify-between items-center py-3 border-t border-b border-slate-100 mb-4`}>
-                            <span className="text-lg font-black text-slate-800">Grand Total:</span>
-                            <span className={`text-xl font-black ${themeClasses.primaryText}`}>{formatCurrency(grandTotal)}</span>
+                        <div className={`flex justify-between items-center py-3 border-b border-slate-100 mb-4`}>
+                            <span className="text-lg font-black text-slate-800">Total Amount:</span>
+                            <span className={`text-xl font-black text-blue-600`}>{formatCurrency(totalAmount)}</span>
                         </div>
 
                         <div className="grid grid-cols-2 gap-4 mb-5">
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 mb-1">Received (৳)</label>
-                                <input type="number" value={paid} onChange={e => setPaid(e.target.value === '' ? '' : Number(e.target.value))} placeholder={grandTotal.toString()} className={`w-full bg-indigo-50/30 border-2 border-indigo-200 rounded-xl p-2.5 text-lg font-black ${themeClasses.primaryText} outline-none focus:border-indigo-400`} />
+                                <label className="block text-xs font-bold text-slate-500 mb-1">Paid Amount (৳)</label>
+                                <input type="number" value={paid} onChange={e => setPaid(e.target.value === '' ? '' : Number(e.target.value))} placeholder={totalAmount.toString()} className={`w-full bg-blue-50/30 border-2 border-blue-200 rounded-xl p-2.5 text-lg font-black text-blue-600 outline-none focus:border-blue-400`} />
                             </div>
                             <div className="text-right">
-                                <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wider">{dueAmt < 0 ? 'Return Change' : 'Due Amount'}</label>
-                                <div className={`text-2xl font-black ${dueAmt < 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wider">Due to Supplier</label>
+                                <div className={`text-2xl font-black text-rose-500`}>
                                     {formatCurrency(Math.abs(dueAmt))}
                                 </div>
                             </div>
@@ -541,7 +495,7 @@ export default function Sale({ onBack, shop }: any) {
                                     <button 
                                         key={method}
                                         onClick={() => setPaymentMethod(method)}
-                                        className={`py-2 px-1 text-xs font-bold rounded-xl border-2 transition-all ${paymentMethod === method ? `border-indigo-500 bg-indigo-50 text-indigo-700` : 'border-slate-200 text-slate-500 bg-white hover:bg-slate-50'}`}
+                                        className={`py-2 px-1 text-xs font-bold rounded-xl border-2 transition-all ${paymentMethod === method ? `border-blue-500 bg-blue-50 text-blue-700` : 'border-slate-200 text-slate-500 bg-white hover:bg-slate-50'}`}
                                     >
                                         {method}
                                     </button>
@@ -551,45 +505,32 @@ export default function Sale({ onBack, shop }: any) {
                     </div>
                 </div>
 
-                {/* Confirm Button Bar */}
                 <div className="absolute bottom-0 left-0 w-full bg-white p-4 border-t border-slate-200 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] z-30">
                     <button 
-                        onClick={handleConfirmSale} 
+                        onClick={handleConfirmPurchase} 
                         disabled={isProcessing}
-                        className="w-full py-4 bg-emerald-500 text-white rounded-2xl font-black text-lg shadow-lg hover:bg-emerald-600 active:scale-95 transition-all flex justify-center items-center"
+                        className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-lg shadow-lg hover:bg-blue-700 active:scale-95 transition-all flex justify-center items-center"
                     >
-                        {isProcessing ? <Loader2 className="h-6 w-6 animate-spin" /> : <><CheckCircle className="h-6 w-6 mr-2" /> Confirm Sale</>}
+                        {isProcessing ? <Loader2 className="h-6 w-6 animate-spin" /> : <><CheckCircle className="h-6 w-6 mr-2" /> Confirm Purchase</>}
                     </button>
                 </div>
             </div>
         );
     }
 
-    // ==========================================
-    // RENDER RECEIPT VIEW (PRINTABLE)
-    // ==========================================
     if (currentView === 'receipt' && receiptData) {
         return (
             <div className="h-screen flex flex-col bg-slate-100">
-                <style dangerouslySetInnerHTML={{ __html: `
-                    @media print {
-                        body * { visibility: hidden; }
-                        #printable-receipt, #printable-receipt * { visibility: visible; }
-                        #printable-receipt { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; background: white; }
-                        .no-print { display: none !important; }
-                    }
-                `}} />
-
                 <div className="flex-1 overflow-y-auto p-4 flex justify-center">
-                    <div id="printable-receipt" className="bg-white w-full max-w-md p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <div className="bg-white w-full max-w-md p-6 rounded-2xl shadow-sm border border-slate-200">
                         <div className="text-center mb-6 border-b border-dashed border-slate-300 pb-6">
-                            <h2 className="text-2xl font-black text-slate-800">{shop.name}</h2>
-                            <p className="text-xs font-bold text-slate-500 tracking-widest mt-1">CASH MEMO / INVOICE</p>
+                            <h2 className="text-2xl font-black text-slate-800">Purchase Receipt</h2>
+                            <p className="text-xs font-bold text-slate-500 tracking-widest mt-1">{shop.name}</p>
                         </div>
 
                         <div className="flex justify-between text-xs font-medium text-slate-600 mb-6">
                             <div>
-                                <p className="mb-1">Customer: <strong className="text-slate-800">{receiptData.customer_name}</strong></p>
+                                <p className="mb-1">Supplier: <strong className="text-slate-800">{receiptData.supplier_name}</strong></p>
                                 <p>Date: {new Date(receiptData.date).toLocaleDateString()}</p>
                             </div>
                             <div className="text-right">
@@ -601,7 +542,7 @@ export default function Sale({ onBack, shop }: any) {
                         <table className="w-full text-xs mb-6 border-collapse">
                             <thead>
                                 <tr className="border-b-2 border-slate-800">
-                                    <th className="text-left py-2">Item & Description</th>
+                                    <th className="text-left py-2">Item</th>
                                     <th className="text-center py-2">Qty</th>
                                     <th className="text-right py-2">Total</th>
                                 </tr>
@@ -610,67 +551,38 @@ export default function Sale({ onBack, shop }: any) {
                                 {JSON.parse(receiptData.items).map((item: any, i: number) => (
                                     <tr key={i} className="border-b border-slate-100">
                                         <td className="py-3">
-                                            <div className="flex items-center">
-                                                {item.image_url && (
-                                                    <img src={item.image_url} alt="" className="w-8 h-8 object-cover rounded mr-2" referrerPolicy="no-referrer" />
-                                                )}
-                                                <div>
-                                                    <div className="font-bold text-slate-800">{item.name}</div>
-                                                    {item.brand && <div className="text-[10px] text-slate-500">{item.brand}</div>}
-                                                    <div className="text-[10px] text-slate-400 mt-0.5">@ {formatCurrency(item.sellRate)}</div>
-                                                </div>
-                                            </div>
+                                            <div className="font-bold text-slate-800">{item.name}</div>
+                                            <div className="text-[10px] text-slate-400 mt-0.5">@ {formatCurrency(item.buyRate)}</div>
                                         </td>
                                         <td className="text-center py-3 font-bold">{item.qty}</td>
-                                        <td className="text-right py-3 font-bold text-slate-800">{formatCurrency(item.qty * item.sellRate)}</td>
+                                        <td className="text-right py-3 font-bold text-slate-800">{formatCurrency(item.qty * item.buyRate)}</td>
                                     </tr>
                                 ))}
                             </tbody>
                         </table>
 
                         <div className="border-t-2 border-slate-800 pt-3 text-sm">
-                            <div className="flex justify-between mb-1 font-medium text-slate-600">
-                                <span>Subtotal:</span>
-                                <span>{formatCurrency(receiptData.subtotal)}</span>
-                            </div>
-                            {receiptData.discount > 0 && (
-                                <div className="flex justify-between mb-1 font-medium text-rose-500">
-                                    <span>Discount:</span>
-                                    <span>- {formatCurrency(receiptData.discount)}</span>
-                                </div>
-                            )}
                             <div className="flex justify-between mb-3 font-black text-slate-800 text-base">
-                                <span>Grand Total:</span>
+                                <span>Total Amount:</span>
                                 <span>{formatCurrency(receiptData.total_amount)}</span>
                             </div>
-                            
-                            <div className="border-t border-dashed border-slate-300 my-3"></div>
-                            
                             <div className="flex justify-between mb-1 font-medium text-slate-600">
-                                <span>Paid / Received:</span>
+                                <span>Paid:</span>
                                 <span>{formatCurrency(receiptData.paid_amount)}</span>
                             </div>
                             {receiptData.due_amount > 0 && (
                                 <div className="flex justify-between font-black text-rose-600 mt-1">
-                                    <span>Due Amount:</span>
+                                    <span>Due:</span>
                                     <span>{formatCurrency(receiptData.due_amount)}</span>
                                 </div>
                             )}
                         </div>
-
-                        <div className="mt-10 text-center">
-                            <p className="text-xs font-bold text-slate-800">Thank you for your business!</p>
-                            <p className="text-[10px] text-slate-400 mt-1">Generated by App</p>
-                        </div>
                     </div>
                 </div>
 
-                <div className="no-print p-4 bg-white border-t border-slate-200 flex gap-3 shadow-[0_-10px_20px_rgba(0,0,0,0.05)]">
-                    <button onClick={() => window.print()} className="flex-1 py-4 bg-slate-800 text-white rounded-2xl font-bold text-lg hover:bg-slate-700 active:scale-95 transition-all flex justify-center items-center">
-                        <Printer className="mr-2 h-5 w-5" /> Print Receipt
-                    </button>
-                    <button onClick={() => setCurrentView('selection')} className={`flex-1 py-4 ${themeClasses.primaryBg} text-white rounded-2xl font-bold text-lg hover:opacity-90 active:scale-95 transition-all flex justify-center items-center`}>
-                        <ShoppingCart className="mr-2 h-5 w-5" /> New Sale
+                <div className="p-4 bg-white border-t border-slate-200 flex gap-3 shadow-[0_-10px_20px_rgba(0,0,0,0.05)]">
+                    <button onClick={() => setCurrentView('selection')} className={`flex-1 py-4 bg-blue-600 text-white rounded-2xl font-bold text-lg hover:opacity-90 active:scale-95 transition-all flex justify-center items-center`}>
+                        <ShoppingBag className="mr-2 h-5 w-5" /> New Purchase
                     </button>
                 </div>
             </div>

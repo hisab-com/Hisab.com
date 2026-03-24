@@ -372,6 +372,20 @@ export default function ProductList({ onBack, shop }: any) {
                 />
                 
                 <div className="p-4 bg-white border-b border-slate-200 shadow-sm z-10">
+                    <div className="grid grid-cols-3 gap-3 mb-4">
+                        <div className="bg-slate-50 p-2.5 rounded-2xl border border-slate-100 flex flex-col items-center justify-center">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Total Items</span>
+                            <span className="text-sm font-black text-slate-800">{products.length}</span>
+                        </div>
+                        <div className="bg-emerald-50 p-2.5 rounded-2xl border border-emerald-100 flex flex-col items-center justify-center">
+                            <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-0.5">Stock Value</span>
+                            <span className="text-sm font-black text-emerald-700">{formatCurrency(totalValue)}</span>
+                        </div>
+                        <div className="bg-orange-50 p-2.5 rounded-2xl border border-orange-100 flex flex-col items-center justify-center">
+                            <span className="text-[10px] font-bold text-orange-600 uppercase tracking-wider mb-0.5">Low Stock</span>
+                            <span className="text-sm font-black text-orange-700">{products.filter(p => (p.has_alert === true || p.has_alert === 'true') && p.stock <= p.alert_qty).length}</span>
+                        </div>
+                    </div>
                     <div className="flex space-x-3">
                         <div className="relative flex-1 group">
                             <Search className={`absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 group-focus-within:${themeClasses.primaryText.split(' ')[0]} transition-colors`} />

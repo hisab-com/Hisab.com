@@ -17,3 +17,7 @@ export const SALES_COLLECTION = 'sales';
 export const USERS_COLLECTION = 'users_public';
 export const INVITATIONS_COLLECTION = 'invitations';
 export const POSTS_COLLECTION = 'posts';
+export const EXPENSES_COLLECTION = 'expenses';
+export const DUES_COLLECTION = 'dues';
+export const PURCHASES_COLLECTION = 'purchases';
+export const NOTES_COLLECTION = 'notes';
